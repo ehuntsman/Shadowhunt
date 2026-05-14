@@ -37,17 +37,19 @@ export const getMessages = query({
 export const initializeGame = mutation({
   args: {},
   handler: async (ctx: MutationCtx) => {
+    // 1. Clear old data
     const existing = await ctx.db.query("gameState").first();
     if (existing) await ctx.db.delete(existing._id);
     
     const oldScenes = await ctx.db.query("scenes").collect();
     for (const s of oldScenes) await ctx.db.delete(s._id);
 
+    // 2. Define 3 Robust Scenarios
     const scenarios = [
       {
         sceneId: "start",
         title: "The Roadside Diner",
-        text: "It's 2 AM. The neon sign of 'Mama's Kitchen' flickers, casting a sickly green glow. Inside, a lone waitress is cleaning the counter.",
+        text: "It's 2 AM. The neon sign of 'Mama's Kitchen' flickers, casting a sickly green glow over the parking lot. Inside, a lone waitress is cleaning the counter. She looks like she's seen a lot, but doesn't talk much to strangers.",
         type: "investigation",
         location: "Oakhaven Outskirts",
         choices: [
@@ -75,7 +77,7 @@ export const initializeGame = mutation({
       {
         sceneId: "gas_station",
         title: "The Abandoned Station",
-        text: "The pumps are rusted shut. You hear a scratching sound from inside the main office. A side window is cracked open.",
+        text: "The pumps are rusted shut, and the air smells of old oil and something... metallic. A heavy chain locks the main office, but a side window is cracked open. You hear a scratching sound from inside.",
         type: "exploration",
         location: "Route 9",
         choices: [
@@ -104,7 +106,7 @@ export const initializeGame = mutation({
       {
         sceneId: "woods_trail",
         title: "The Overgrown Trail",
-        text: "The trail leads deep into Blackwood Forest. You find a circle of stones blocking the path.",
+        text: "The trail leads deep into the Blackwood Forest. The trees here grow at impossible angles. You find a circle of stones blocking the path.",
         type: "encounter",
         location: "Blackwood Forest",
         choices: [
@@ -187,26 +189,24 @@ export const makeChoice = mutation({
       injury: Math.max(0, state.injury + (e.injury || 0)),
       authority: Math.max(0, state.authority + (e.authority || 0)),
       knowledge: Math.max(0, state.knowledge + (e.knowledge || 0)),
+      currentSceneId: choice.nextSceneId,
+      history: [...state.history, choice.nextSceneId],
+      day: state.day + (choice.nextSceneId === "start" ? 1 : 0)
     };
 
+    // Calculate Outcome Text
     const changes = [];
     if (e.trust) changes.push(`${e.trust > 0 ? '+' : ''}${e.trust} Trust`);
     if (e.reputation) changes.push(`${e.reputation > 0 ? '+' : ''}${e.reputation} Rep`);
     if (e.stress) changes.push(`${e.stress > 0 ? '+' : ''}${e.stress} Stress`);
     if (e.money) changes.push(`${e.money > 0 ? '+$' : '-$'}${Math.abs(e.money)}`);
     if (e.injury) changes.push(`${e.injury > 0 ? '+' : ''}${e.injury} Injury`);
-    if (e.authority) changes.push(`${e.authority > 0 ? '+' : ''}${e.authority} Authority`);
-    if (e.knowledge) changes.push(`${e.knowledge > 0 ? '+' : ''}${e.knowledge} Knowledge`);
-    
-    let resultText = changes.length > 0 ? changes.join(", ") : "Action complete.";
+    if (e.authority) changes.push(`${e.authority > 0 ? '+' : ''}${e.authority} Auth`);
+    if (e.knowledge) changes.push(`${e.knowledge > 0 ? '+' : ''}${e.knowledge} Know`);
+    if (choice.itemGained) changes.push(`+${choice.itemGained}`);
+    if (choice.clueGained) changes.push(`New Lead Found`);
 
-    updates.lastAction = {
-      text: choice.text,
-      resultText,
-      nextSceneId: choice.nextSceneId,
-      itemGained: choice.itemGained,
-      clueGained: choice.clueGained,
-    };
+    updates.latestOutcome = changes.length > 0 ? changes.join(", ") : "You moved forward.";
 
     if (choice.itemGained) {
       updates.inventory = [...state.inventory, choice.itemGained];
@@ -218,22 +218,5 @@ export const makeChoice = mutation({
 
     await ctx.db.patch(state._id, updates);
     return updates;
-  },
-});
-
-export const confirmAction = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const state = await ctx.db.query("gameState").first();
-    if (!state || !state.lastAction) return;
-
-    const nextSceneId = state.lastAction.nextSceneId;
-    
-    await ctx.db.patch(state._id, {
-      currentSceneId: nextSceneId,
-      history: [...state.history, nextSceneId],
-      lastAction: undefined,
-      day: state.day + (nextSceneId === "start" ? 1 : 0)
-    });
   },
 });
