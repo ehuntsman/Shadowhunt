@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Crosshair, Home, Book } from "lucide-react-native";
+import { Search, Book, Users } from "lucide-react-native";
 import { Platform } from "react-native";
 
 import { HapticTab } from "@/components/HapticTab";
@@ -13,42 +13,43 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+        tabBarActiveTintColor: "#0f172a",
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarLabelPosition: "below-icon",
-        tabBarLabelStyle: Platform.select({
-          web: { overflow: "visible" },
-          default: {},
-        }),
         tabBarStyle: Platform.select({
           ios: {
             position: "absolute",
+            height: 88,
+            paddingBottom: 30,
           },
-          default: {},
+          default: {
+            height: 64,
+            paddingBottom: 10,
+          },
         }),
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Hunt",
-          tabBarIcon: ({ color }) => <Crosshair size={22} color={color} />,
+          title: "Investigate",
+          tabBarIcon: ({ color }) => <Search size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: "Bunker",
-          tabBarIcon: ({ color }) => <Home size={22} color={color} />,
+          title: "Journal",
+          tabBarIcon: ({ color }) => <Book size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="contacts"
         options={{
-          title: "Black Book",
-          tabBarIcon: ({ color }) => <Book size={22} color={color} />,
+          title: "Directory",
+          tabBarIcon: ({ color }) => <Users size={22} color={color} />,
         }}
       />
     </Tabs>

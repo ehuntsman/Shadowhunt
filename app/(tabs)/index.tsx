@@ -1,124 +1,133 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { View, Text, Button, SafeAreaView, Spinner } from "@/components/ui";
-import { GameCard } from "@/components/GameCard";
-import { Heart, Brain, Coins, Ghost, RefreshCw } from "lucide-react-native";
-import { Id } from "@/convex/_generated/dataModel";
+import { View, Text, Button, SafeAreaView, Spinner, ScrollView, Card, CardContent } from "@/components/ui";
+import { 
+  Users, // Trust
+  Star, // Reputation
+  Zap, // Stress
+  Coins, // Money
+  AlertCircle, // Injury
+  ShieldAlert, // Authority
+  BookOpen, // Knowledge
+  RefreshCw,
+  ChevronRight
+} from "lucide-react-native";
 import { Alert } from "react-native";
 
-export default function HomeScreen() {
+export default function InvestigationScreen() {
   const gameState = useQuery(api.game.getGameState);
-  const encounter = useQuery(api.game.getRandomEncounter);
+  const currentScene = useQuery(api.game.getCurrentScene);
   const initializeGame = useMutation(api.game.initializeGame);
-  const handleChoice = useMutation(api.game.handleChoice);
+  const makeChoice = useMutation(api.game.makeChoice);
+  const [loading, setLoading] = useState(false);
 
-  console.log("Game state:", gameState);
-  console.log("Encounter:", encounter);
-
-  if (gameState === undefined) {
+  if (gameState === undefined || (gameState && currentScene === undefined)) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center">
         <Spinner size="large" />
-        <Text className="mt-4 text-muted-foreground">Connecting to backend...</Text>
-        <Text variant="small" className="mt-2 text-muted-foreground/50">
-          {process.env.EXPO_PUBLIC_CONVEX_URL}
-        </Text>
       </SafeAreaView>
     );
   }
 
   if (!gameState) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center p-6">
-        <Text variant="h1" className="mb-4 text-center font-bold">Shadow Hunter</Text>
-        <Text variant="p" className="mb-8 text-center text-muted-foreground">
-          Welcome to the bunker. The supernatural is real, and it's your job to hunt it. 
-          Manage your resources and keep your sanity.
+      <SafeAreaView className="flex-1 items-center justify-center p-6 bg-slate-50">
+        <Text variant="h1" className="mb-4 text-center font-serif text-4xl">Oakhaven</Text>
+        <Text variant="p" className="mb-8 text-center text-muted-foreground italic">
+          A narrative investigation into the unusual.
         </Text>
-        <Button size="lg" onPress={() => initializeGame()}>
-          <Text>Begin the Hunt</Text>
+        <Button size="lg" onPress={() => initializeGame()} className="rounded-full px-8">
+          <Text>Begin Case</Text>
         </Button>
       </SafeAreaView>
     );
   }
 
-  const onSwipe = async (choice: "left" | "right") => {
-    if (encounter) {
-      try {
-        await handleChoice({ 
-          choice, 
-          encounterId: encounter._id 
-        });
-      } catch (e) {
-        Alert.alert("Missing Item", e instanceof Error ? e.message : "You can't do that yet.");
-      }
+  const handleChoice = async (index: number) => {
+    if (!currentScene) return;
+    setLoading(true);
+    try {
+      await makeChoice({ 
+        choiceIndex: index, 
+        sceneId: currentScene.sceneId 
+      });
+    } catch (e) {
+      Alert.alert("Locked", e instanceof Error ? e.message : "You cannot take this action.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const Meter = ({ icon: Icon, value, color }: { icon: any, value: number, color: string }) => (
+  const Meter = ({ icon: Icon, value, color, label }: { icon: any, value: number, color: string, label: string }) => (
     <View className="items-center flex-1">
-      <Icon size={24} color={color} />
-      <View className="h-1.5 w-full bg-muted rounded-full mt-2 overflow-hidden">
-        <View 
-          className="h-full" 
-          style={{ width: `${Math.max(0, Math.min(100, value))}%`, backgroundColor: color }} 
-        />
-      </View>
+      <Icon size={18} color={color} />
+      <Text className="text-[9px] mt-0.5 font-bold uppercase" style={{ color }}>{value}</Text>
     </View>
   );
 
-  const isGameOver = gameState.health <= 0 || gameState.sanity <= 0;
-
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      {/* Stats Header */}
-      <View className="flex-row justify-between px-6 py-4 border-b border-border bg-card/50">
-        <Meter icon={Heart} value={gameState.health} color="#ef4444" />
-        <View className="w-4" />
-        <Meter icon={Brain} value={gameState.sanity} color="#a855f7" />
-        <View className="w-4" />
-        <Meter icon={Coins} value={gameState.resources} color="#eab308" />
-        <View className="w-4" />
-        <Meter icon={Ghost} value={gameState.shadow} color="#64748b" />
+    <SafeAreaView className="flex-1 bg-[#fbfbfb]" edges={["top"]}>
+      {/* Narrative Stats Header */}
+      <View className="flex-row justify-between px-4 py-3 border-b border-slate-200 bg-white shadow-sm">
+        <Meter icon={Users} value={gameState.trust} color="#3b82f6" label="Trust" />
+        <Meter icon={Star} value={gameState.reputation} color="#eab308" label="Rep" />
+        <Meter icon={Zap} value={gameState.stress} color="#a855f7" label="Stress" />
+        <Meter icon={Coins} value={gameState.money} color="#22c55e" label="Money" />
+        <Meter icon={AlertCircle} value={gameState.injury} color="#ef4444" label="Injury" />
+        <Meter icon={ShieldAlert} value={gameState.authority} color="#64748b" label="Auth" />
+        <Meter icon={BookOpen} value={gameState.knowledge} color="#6366f1" label="Know" />
       </View>
 
-      <View className="flex-1">
-        <View className="px-6 pt-4">
-           <Text variant="small" className="text-muted-foreground uppercase font-bold tracking-widest">
-             Day {gameState.day} • {gameState.location}
-           </Text>
-        </View>
+      <ScrollView className="flex-1" contentContainerClassName="p-6">
+        {currentScene ? (
+          <View className="flex-1">
+            <Text className="text-muted-foreground uppercase tracking-[3px] text-[10px] font-bold mb-2">
+               {currentScene.location} • Day {gameState.day}
+            </Text>
+            
+            <View className="mb-8">
+               <Text variant="h2" className="font-serif text-3xl mb-4 leading-tight">
+                 {currentScene.title}
+               </Text>
+               <View className="h-0.5 w-12 bg-slate-300 mb-6" />
+               <Text className="text-lg leading-relaxed text-slate-700 font-light">
+                 {currentScene.text}
+               </Text>
+            </View>
 
-        {encounter ? (
-          <GameCard
-            key={encounter._id} 
-            text={encounter.text}
-            leftText={encounter.leftOption.text}
-            rightText={encounter.rightOption.text}
-            leftRequiredItem={(encounter.leftOption as any).itemRequired}
-            rightRequiredItem={(encounter.rightOption as any).itemRequired}
-            onSwipeLeft={() => onSwipe("left")}
-            onSwipeRight={() => onSwipe("right")}
-          />
+            <View className="gap-3 mb-10">
+               {currentScene.choices.map((choice, i) => (
+                 <Button 
+                   key={i} 
+                   variant="outline" 
+                   onPress={() => handleChoice(i)}
+                   className="justify-between h-auto py-4 px-5 border-slate-200 bg-white active:bg-slate-50"
+                   disabled={loading}
+                 >
+                   <Text className="flex-1 text-slate-800 text-left font-medium mr-4">{choice.text}</Text>
+                   <ChevronRight size={18} className="text-slate-400" />
+                 </Button>
+               ))}
+            </View>
+          </View>
         ) : (
-          <View className="flex-1 items-center justify-center p-6">
-             <Text className="text-muted-foreground mb-4">Finding next encounter...</Text>
+          <View className="flex-1 items-center justify-center py-20">
              <Spinner />
           </View>
         )}
-      </View>
+      </ScrollView>
 
-      {/* Game Over State */}
-      {isGameOver && (
-        <View className="absolute inset-0 bg-background/95 items-center justify-center p-8 z-50">
-          <Text variant="h1" className="mb-2 text-destructive">Game Over</Text>
-          <Text variant="p" className="text-center mb-8">
-            {gameState.health <= 0 ? "You died from your wounds." : "You lost your mind to the shadows."}
+      {/* Fail States */}
+      {(gameState.stress >= 100 || gameState.injury >= 100) && (
+        <View className="absolute inset-0 bg-white/95 items-center justify-center p-8 z-50">
+          <Text variant="h1" className="mb-2 text-destructive font-serif">Case Closed</Text>
+          <Text variant="p" className="text-center mb-8 font-light">
+            {gameState.stress >= 100 ? "The mental toll was too great." : "The investigation ended in tragedy."}
           </Text>
-          <Button onPress={() => initializeGame()}>
-            <RefreshCw size={20} className="mr-2" />
-            <Text>Start Over</Text>
+          <Button onPress={() => initializeGame()} className="rounded-full">
+            <RefreshCw size={18} className="mr-2" />
+            <Text>Restart Investigation</Text>
           </Button>
         </View>
       )}

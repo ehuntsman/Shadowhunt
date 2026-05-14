@@ -3,65 +3,66 @@ import { v } from "convex/values";
 
 export default defineSchema({
   gameState: defineTable({
-    health: v.number(),
-    sanity: v.number(),
-    resources: v.number(),
-    shadow: v.number(),
-    location: v.string(), // "bunker" or "hunt"
+    // Narrative Stats
+    trust: v.number(),
+    reputation: v.number(),
+    stress: v.number(),
+    money: v.number(),
+    injury: v.number(),
+    authority: v.number(), // Attention from authorities
+    knowledge: v.number(),
+    
+    currentLocation: v.string(),
+    currentSceneId: v.string(),
     day: v.number(),
-    currentEncounterId: v.optional(v.string()),
     inventory: v.array(v.string()),
+    clues: v.array(v.string()),
+    history: v.array(v.string()), // IDs of scenes visited
   }),
-  encounters: defineTable({
+
+  scenes: defineTable({
+    sceneId: v.string(),
+    title: v.string(),
     text: v.string(),
-    leftOption: v.object({
+    type: v.string(), // "investigation", "travel", "dialogue"
+    location: v.string(),
+    backgroundImage: v.optional(v.string()),
+    choices: v.array(v.object({
       text: v.string(),
       effects: v.object({
-        health: v.number(),
-        sanity: v.number(),
-        resources: v.number(),
-        shadow: v.number(),
+        trust: v.optional(v.number()),
+        reputation: v.optional(v.number()),
+        stress: v.optional(v.number()),
+        money: v.optional(v.number()),
+        injury: v.optional(v.number()),
+        authority: v.optional(v.number()),
+        knowledge: v.optional(v.number()),
       }),
-      targetLocation: v.optional(v.string()),
-      itemGained: v.optional(v.string()),
+      nextSceneId: v.string(),
       itemRequired: v.optional(v.string()),
-    }),
-    rightOption: v.object({
-      text: v.string(),
-      effects: v.object({
-        health: v.number(),
-        sanity: v.number(),
-        resources: v.number(),
-        shadow: v.number(),
-      }),
-      targetLocation: v.optional(v.string()),
       itemGained: v.optional(v.string()),
-      itemRequired: v.optional(v.string()),
-    }),
-    type: v.string(), // "hunt", "bunker", "random"
-  }),
-  inventory: defineTable({
-    name: v.string(),
-    description: v.string(),
-    type: v.string(), // "tool", "trophy", "scrap"
-  }),
-  upgrades: defineTable({
-    name: v.string(),
-    level: v.number(),
-    description: v.string(),
-    cost: v.number(),
-  }),
+      clueGained: v.optional(v.string()),
+      condition: v.optional(v.object({
+        stat: v.string(),
+        value: v.number(),
+        operator: v.string(), // "gt", "lt", "eq"
+      })),
+    })),
+  }).index("by_sceneId", ["sceneId"]),
+
   contacts: defineTable({
     name: v.string(),
+    role: v.string(),
     description: v.string(),
-    type: v.string(), // "intel", "merchant", "backup"
-    status: v.string(), // "available", "busy", "locked"
+    type: v.string(), // "intel", "professional", "local"
+    status: v.string(), 
     cost: v.number(),
   }),
+
   messages: defineTable({
     from: v.string(),
     text: v.string(),
     read: v.boolean(),
-    type: v.string(), // "request", "hint", "flavor"
+    timestamp: v.number(),
   }),
 });

@@ -1,16 +1,17 @@
 import React from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { View, Text, Button, SafeAreaView, ScrollView, Card, CardHeader, CardTitle, CardDescription, CardContent, Spinner } from "@/components/ui";
-import { Phone, MessageSquare, Shield, User, Info, AlertCircle } from "lucide-react-native";
+import { View, Text, Button, SafeAreaView, ScrollView, Card, CardHeader, CardTitle, CardContent, Spinner } from "@/components/ui";
+import { Phone, MessageSquare, User, Info, MoreHorizontal } from "lucide-react-native";
 import { Alert } from "react-native";
 import { Badge } from "@/components/ui/badge";
 
-export default function BlackBookScreen() {
+export default function DirectoryScreen() {
   const gameState = useQuery(api.game.getGameState);
   const contacts = useQuery(api.game.getContacts);
   const messages = useQuery(api.game.getMessages);
-  const callContact = useMutation(api.game.callContact);
+  // Re-use logic or adapt for investigation theme
+  // For now we just show the directory list
 
   if (gameState === undefined || contacts === undefined || messages === undefined) {
     return (
@@ -20,41 +21,28 @@ export default function BlackBookScreen() {
     );
   }
 
-  const handleCall = async (id: any) => {
-    try {
-      const result = await callContact({ contactId: id });
-      if (result.success) {
-        Alert.alert("Call Connected", result.message);
-      } else {
-        Alert.alert("Line Busy", result.message);
-      }
-    } catch (e) {
-      Alert.alert("Error", "Could not connect call.");
-    }
-  };
-
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-[#fbfbfb]" edges={["top"]}>
       <ScrollView className="flex-1" contentContainerClassName="p-6 pb-20">
-        <View className="flex-row items-center mb-6">
-          <View className="bg-foreground p-2 rounded-lg mr-3">
-             <Phone size={24} className="text-background" />
+        <View className="flex-row items-center mb-8">
+          <View className="bg-slate-900 p-2.5 rounded-xl mr-4 shadow-sm">
+            <Users size={28} className="text-white" />
           </View>
           <View>
-            <Text variant="h1" className="font-bold">The Black Book</Text>
-            <Text variant="small" className="text-muted-foreground italic">"Everyone has a price."</Text>
+            <Text variant="h1" className="font-serif text-3xl">Directory</Text>
+            <Text variant="small" className="text-muted-foreground font-light">Contacts & Communications</Text>
           </View>
         </View>
 
-        {/* Messages / Requests Section */}
-        <View className="mb-8">
-           <View className="flex-row items-center justify-between mb-4">
+        {/* Incoming Messages */}
+        <View className="mb-10">
+           <View className="flex-row items-center justify-between mb-5">
               <View className="flex-row items-center">
-                <MessageSquare size={20} className="text-primary mr-2" />
-                <Text variant="h3" className="font-bold">Messages</Text>
+                <MessageSquare size={18} className="text-slate-800 mr-2" />
+                <Text variant="h3" className="font-serif text-xl tracking-tight">Recent Dispatches</Text>
               </View>
               {messages.filter(m => !m.read).length > 0 && (
-                <Badge variant="destructive" className="h-5 px-1.5 min-w-[20px] items-center justify-center">
+                <Badge variant="destructive" className="h-5 px-1.5 min-w-[20px] bg-slate-800 border-none">
                    <Text className="text-[10px] font-bold text-white">{messages.filter(m => !m.read).length}</Text>
                 </Badge>
               )}
@@ -63,76 +51,63 @@ export default function BlackBookScreen() {
            {messages.length > 0 ? (
              <View className="gap-3">
                {messages.map((msg, i) => (
-                 <Card key={i} className={`bg-card/50 ${!msg.read ? 'border-primary/50' : 'border-border'}`}>
-                   <CardContent className="p-4">
-                      <View className="flex-row items-center mb-1">
-                         <Text className="font-bold text-xs mr-2">{msg.from}</Text>
-                         {msg.type === "hint" && <Info size={12} className="text-blue-500" />}
-                      </View>
-                      <Text variant="small" className="text-foreground">{msg.text}</Text>
-                   </CardContent>
-                 </Card>
+                 <View key={i} className={`p-4 rounded-xl border ${!msg.read ? 'bg-white border-slate-200 shadow-sm' : 'bg-transparent border-slate-100'}`}>
+                    <View className="flex-row items-center mb-2">
+                       <Text className="font-bold text-[10px] uppercase tracking-wider text-slate-400 mr-2">{msg.from}</Text>
+                       {msg.type === "hint" && <Info size={12} className="text-blue-500" />}
+                    </View>
+                    <Text className="text-slate-700 leading-snug">{msg.text}</Text>
+                 </View>
                ))}
              </View>
            ) : (
-             <Text variant="small" className="text-muted-foreground italic px-2">No active requests.</Text>
+             <Text variant="small" className="text-muted-foreground italic px-2 font-light">No active dispatches.</Text>
            )}
         </View>
 
-        {/* Contacts Section */}
-        <Text variant="h3" className="mb-4 font-bold">Contacts</Text>
+        {/* Professional Contacts */}
+        <Text variant="h3" className="mb-5 font-serif text-xl tracking-tight">Professional Network</Text>
         
         <View className="gap-4">
           {contacts.map((contact) => (
-            <Card key={contact._id} className={contact.status === "locked" ? "opacity-60" : ""}>
-              <CardHeader className="pb-2">
-                <View className="flex-row justify-between items-start">
-                  <View className="flex-row items-center flex-1">
-                    <View className="bg-muted p-2 rounded-full mr-3">
-                       <User size={18} className="text-muted-foreground" />
+            <Card key={contact._id} className="border-none bg-white shadow-sm overflow-hidden">
+              <CardContent className="p-5">
+                <View className="flex-row items-start justify-between mb-3">
+                  <View className="flex-row items-center flex-1 mr-3">
+                    <View className="bg-slate-100 p-2.5 rounded-full mr-4">
+                       <User size={20} className="text-slate-600" />
                     </View>
                     <View>
-                      <CardTitle className="text-lg">{contact.name}</CardTitle>
-                      <View className="flex-row items-center">
-                        <Badge variant={contact.status === "available" ? "default" : "outline"} className="h-4 px-1 mt-0.5">
-                           <Text className="text-[8px] uppercase">{contact.status}</Text>
-                        </Badge>
-                        <Text className="text-[10px] text-muted-foreground ml-2 uppercase tracking-tighter">{contact.type}</Text>
-                      </View>
+                      <Text className="text-lg font-medium text-slate-800 leading-tight">{contact.name}</Text>
+                      <Text className="text-xs text-slate-400 font-light italic">{contact.role}</Text>
                     </View>
                   </View>
-                  <View className="bg-primary/10 px-2 py-1 rounded">
-                     <Text className="text-primary font-bold text-xs">${contact.cost}</Text>
+                  <View className="bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                     <Text className="text-slate-500 font-bold text-[10px]">${contact.cost}</Text>
                   </View>
                 </View>
-              </CardHeader>
-              <CardContent>
-                <Text variant="small" className="text-muted-foreground mb-4">
+
+                <Text className="text-sm text-slate-500 font-light leading-relaxed mb-5">
                   {contact.description}
                 </Text>
+
                 <Button 
-                  variant={gameState.resources >= contact.cost && contact.status === "available" ? "default" : "outline"}
-                  onPress={() => handleCall(contact._id)}
-                  disabled={gameState.resources < contact.cost || contact.status !== "available"}
-                  className="w-full flex-row"
+                  variant="secondary"
+                  onPress={() => Alert.alert("Call Protocol", `Establishing connection with ${contact.name}...`)}
+                  disabled={gameState.money < contact.cost || contact.status !== "available"}
+                  className="w-full bg-slate-900 active:bg-slate-800 rounded-lg"
                 >
-                  <Phone size={16} className="mr-2" />
-                  <Text>{contact.status === "locked" ? "Locked" : "Call Now"}</Text>
+                  <Phone size={16} className="text-white mr-2" />
+                  <Text className="text-white">Request Intel</Text>
                 </Button>
               </CardContent>
             </Card>
           ))}
         </View>
 
-        <View className="mt-8 bg-destructive/5 p-4 rounded-xl border border-destructive/10">
-           <View className="flex-row items-center mb-2">
-              <AlertCircle size={18} className="text-destructive mr-2" />
-              <Text className="text-destructive font-bold">Emergency Signal</Text>
-           </View>
-           <Text variant="small" className="text-muted-foreground mb-3">Broadcast a distress call. High risk of attracting shadows.</Text>
-           <Button variant="destructive" className="w-full" onPress={() => Alert.alert("Signal Broadcast", "Your signal was picked up. Something is approaching...")}>
-              <Text>Signal for Help</Text>
-           </Button>
+        <View className="mt-12 p-6 rounded-2xl bg-slate-50 border border-dashed border-slate-200 items-center">
+            <MoreHorizontal size={24} className="text-slate-300 mb-2" />
+            <Text className="text-slate-400 text-xs font-light italic text-center">New contacts will be added as your reputation grows in Oakhaven.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

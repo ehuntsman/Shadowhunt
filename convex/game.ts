@@ -4,220 +4,190 @@ import { QueryCtx, MutationCtx } from "./_generated/server";
 
 export const getGameState = query({
   args: {},
-  returns: v.union(v.null(), v.object({
-    _id: v.id("gameState"),
-    _creationTime: v.number(),
-    health: v.number(),
-    sanity: v.number(),
-    resources: v.number(),
-    shadow: v.number(),
-    location: v.string(),
-    day: v.number(),
-    currentEncounterId: v.optional(v.string()),
-    inventory: v.array(v.string()),
-  })),
   handler: async (ctx: QueryCtx) => {
     const state = await ctx.db.query("gameState").first();
-    if (!state) return null;
-    return state;
+    return state || null;
   },
 });
 
-async function pickNextEncounter(ctx: MutationCtx, location: string, excludeId?: string) {
-  const encounters = await ctx.db.query("encounters").collect();
-  const filtered = encounters.filter(e => e.type === location);
-  const candidates = filtered.length > 0 ? filtered : encounters;
-  
-  if (candidates.length === 0) return undefined;
-  
-  if (candidates.length > 1 && excludeId) {
-    const others = candidates.filter(e => e._id !== excludeId);
-    return others[Math.floor(Math.random() * others.length)];
-  }
-  return candidates[Math.floor(Math.random() * candidates.length)];
-}
+export const getCurrentScene = query({
+  args: {},
+  handler: async (ctx: QueryCtx) => {
+    const state = await ctx.db.query("gameState").first();
+    if (!state) return null;
+    return await ctx.db.query("scenes")
+      .withIndex("by_sceneId", (q) => q.eq("sceneId", state.currentSceneId))
+      .first();
+  },
+});
 
 export const initializeGame = mutation({
   args: {},
-  returns: v.id("gameState"),
   handler: async (ctx: MutationCtx) => {
     const existing = await ctx.db.query("gameState").first();
     if (existing) {
       await ctx.db.delete(existing._id);
     }
-    
-    // Seed encounters
-    const existingEncounters = await ctx.db.query("encounters").collect();
-    if (existingEncounters.length === 0) {
-      const initialSeeds = [
-        {
-          text: "You hear a scratching at the bunker door. It sounds... large.",
-          type: "bunker",
-          leftOption: { text: "Open it with a shotgun", effects: { health: -10, sanity: -5, resources: -5, shadow: -10 } },
-          rightOption: { text: "Ignore it and pray", effects: { health: 0, sanity: -15, resources: 0, shadow: 5 } }
-        },
-        {
-          text: "A hunter friend calls. They've found a nest in the city sewer.",
-          type: "bunker",
-          leftOption: { text: "Let's go", effects: { health: 0, sanity: 0, resources: -10, shadow: -5 }, targetLocation: "hunt" },
-          rightOption: { text: "Too dangerous", effects: { health: 0, sanity: 0, resources: 0, shadow: 0 } }
-        },
-        {
-          text: "The hunt is over. You are exhausted but alive.",
-          type: "hunt",
-          leftOption: { text: "Return to bunker", effects: { health: 10, sanity: 5, resources: 0, shadow: 0 }, targetLocation: "bunker" },
-          rightOption: { text: "Stay and scavenge", effects: { health: -10, sanity: -5, resources: 30, shadow: -10 } }
-        },
-        {
-          text: "You find a gleaming silver blade in a hollow tree.",
-          type: "hunt",
-          leftOption: { text: "Take it", effects: { health: 0, sanity: 0, resources: 0, shadow: -5 }, itemGained: "Silver Blade" },
-          rightOption: { text: "Leave it", effects: { health: 0, sanity: 0, resources: 0, shadow: 0 } }
-        },
-        {
-          text: "A Werewolf blocks your path, snarling with yellow eyes.",
-          type: "hunt",
-          leftOption: { text: "Fight with Silver Blade", effects: { health: -5, sanity: -10, resources: 0, shadow: 5 }, itemRequired: "Silver Blade" },
-          rightOption: { text: "Run for your life", effects: { health: -40, sanity: -20, resources: 0, shadow: 0 } }
-        }
-      ];
-      for (const seed of initialSeeds) {
-        await ctx.db.insert("encounters", seed as any);
+
+    // Seed initial scenes
+    const initialScenes = [
+      {
+        sceneId: "town_arrival",
+        title: "Roadside Stop",
+        text: "A small roadside town has reported unusual incidents near the highway. The air is thick with the scent of pine and exhaust.",
+        type: "investigation",
+        location: "Oakhaven",
+        choices: [
+          {
+            text: "Speak with the clerk",
+            effects: { trust: 1, stress: 0 },
+            nextSceneId: "clerk_dialogue"
+          },
+          {
+            text: "Investigate the highway",
+            effects: { stress: 2, knowledge: 1 },
+            nextSceneId: "highway_inspection"
+          }
+        ]
+      },
+      {
+        sceneId: "clerk_dialogue",
+        title: "The Gas Station",
+        text: "The clerk eyes your badge with a mix of suspicion and relief. 'You here about the missing freight?'",
+        type: "dialogue",
+        location: "Oakhaven",
+        choices: [
+          {
+            text: "Ask about the witnesses",
+            effects: { reputation: 1, knowledge: 2 },
+            nextSceneId: "town_arrival" // Loop for now
+          },
+          {
+            text: "Buy a local map",
+            effects: { money: -10 },
+            nextSceneId: "town_arrival",
+            itemGained: "Local Map"
+          }
+        ]
+      },
+      {
+        sceneId: "highway_inspection",
+        title: "Route 42",
+        text: "Deep tire tracks lead off the road and into the brush. Something heavy was dragged here.",
+        type: "investigation",
+        location: "Oakhaven",
+        choices: [
+          {
+            text: "Follow the tracks",
+            effects: { injury: 1, stress: 5 },
+            nextSceneId: "town_arrival"
+          },
+          {
+            text: "Return to town",
+            effects: { authority: 1 },
+            nextSceneId: "town_arrival"
+          }
+        ]
+      }
+    ];
+
+    for (const scene of initialScenes) {
+      const existingScene = await ctx.db.query("scenes")
+        .withIndex("by_sceneId", q => q.eq("sceneId", scene.sceneId))
+        .first();
+      if (!existingScene) {
+        await ctx.db.insert("scenes", scene);
       }
     }
 
-    const nextEncounter = await pickNextEncounter(ctx, "bunker");
-    
-    const stateId = await ctx.db.insert("gameState", {
-      health: 50,
-      sanity: 50,
-      resources: 50,
-      shadow: 50,
-      location: "bunker",
+    // Seed initial contacts
+    const contacts = [
+      { name: "Agent K", role: "Federal Liaison", description: "Provides authority clearance.", type: "professional", status: "available", cost: 50 },
+      { name: "Old Ben", role: "Local Witness", description: "Knows the town's history.", type: "local", status: "available", cost: 0 }
+    ];
+    for (const contact of contacts) {
+      const existingContact = await ctx.db.query("contacts").filter(q => q.eq(q.field("name"), contact.name)).first();
+      if (!existingContact) await ctx.db.insert("contacts", contact);
+    }
+
+    return await ctx.db.insert("gameState", {
+      trust: 10,
+      reputation: 10,
+      stress: 0,
+      money: 100,
+      injury: 0,
+      authority: 0,
+      knowledge: 0,
+      currentLocation: "Oakhaven",
+      currentSceneId: "town_arrival",
       day: 1,
       inventory: [],
-      currentEncounterId: nextEncounter?._id,
+      clues: [],
+      history: ["town_arrival"],
     });
-
-    const existingUpgrades = await ctx.db.query("upgrades").collect();
-    if (existingUpgrades.length === 0) {
-      const upgrades = [
-        { name: "Reinforced Door", level: 1, description: "Increases Shadow resistance.", cost: 30 },
-        { name: "Medical Lab", level: 1, description: "Restores Health over time.", cost: 50 },
-        { name: "Psych Ward", level: 1, description: "Restores Sanity over time.", cost: 50 }
-      ];
-      for (const u of upgrades) {
-        await ctx.db.insert("upgrades", u);
-      }
-    }
-
-    // Seed contacts
-    const existingContacts = await ctx.db.query("contacts").collect();
-    if (existingContacts.length === 0) {
-      const contacts = [
-        { name: "Father O'Malley", description: "Provides spiritual protection and sanity restores.", type: "intel", status: "available", cost: 20 },
-        { name: "The Fence", description: "Trades resources for rare items.", type: "merchant", status: "available", cost: 40 },
-        { name: "Sgt. Miller", description: "Ex-military backup for dangerous hunts.", type: "backup", status: "locked", cost: 60 }
-      ];
-      for (const c of contacts) {
-        await ctx.db.insert("contacts", c);
-      }
-    }
-
-    // Seed initial message
-    const existingMessages = await ctx.db.query("messages").collect();
-    if (existingMessages.length === 0) {
-      await ctx.db.insert("messages", {
-        from: "Unknown",
-        text: "Don't trust the scratching. It's not a dog.",
-        read: false,
-        type: "hint"
-      });
-    }
-
-    return stateId;
   },
 });
 
-export const handleChoice = mutation({
+export const makeChoice = mutation({
   args: { 
-    choice: v.union(v.literal("left"), v.literal("right")),
-    encounterId: v.id("encounters")
+    choiceIndex: v.number(),
+    sceneId: v.string()
   },
-  returns: v.any(),
   handler: async (ctx: MutationCtx, args) => {
     const state = await ctx.db.query("gameState").first();
     if (!state) throw new Error("Game not initialized");
 
-    const encounter = await ctx.db.get(args.encounterId);
-    if (!encounter) throw new Error("Encounter not found");
+    const scene = await ctx.db.query("scenes")
+      .withIndex("by_sceneId", q => q.eq("sceneId", args.sceneId))
+      .first();
+    if (!scene) throw new Error("Scene not found");
 
-    const option = args.choice === "left" ? encounter.leftOption : encounter.rightOption;
-    const effects = option.effects;
-    const targetLocation = (option as any).targetLocation;
-    const itemGained = (option as any).itemGained;
-    const itemRequired = (option as any).itemRequired;
+    const choice = scene.choices[args.choiceIndex];
+    if (!choice) throw new Error("Choice not found");
 
-    if (itemRequired && !state.inventory.includes(itemRequired)) {
-      throw new Error(`You need ${itemRequired} to do this!`);
+    // Requirement checks
+    if (choice.itemRequired && !state.inventory.includes(choice.itemRequired)) {
+      throw new Error(`Requires: ${choice.itemRequired}`);
     }
 
-    let newLocation = targetLocation || state.location;
-    let newInventory = [...state.inventory];
-    
-    if (itemGained && !newInventory.includes(itemGained)) {
-      newInventory.push(itemGained);
-    }
-    
-    // Auto-retreat from hunt chance
-    if (!targetLocation && state.location === "hunt" && Math.random() > 0.8) {
-      newLocation = "bunker";
-    }
-
-    const nextEncounter = await pickNextEncounter(ctx, newLocation, encounter._id);
-
+    // Stat logic
+    const e = choice.effects;
     const newState = {
-      health: Math.min(100, Math.max(0, state.health + effects.health)),
-      sanity: Math.min(100, Math.max(0, state.sanity + effects.sanity)),
-      resources: Math.min(100, Math.max(0, state.resources + effects.resources)),
-      shadow: Math.min(100, Math.max(0, state.shadow + effects.shadow)),
-      day: state.day + 1,
-      location: newLocation,
-      inventory: newInventory,
-      currentEncounterId: nextEncounter?._id,
+      trust: Math.max(0, state.trust + (e.trust || 0)),
+      reputation: Math.max(0, state.reputation + (e.reputation || 0)),
+      stress: Math.max(0, state.stress + (e.stress || 0)),
+      money: Math.max(0, state.money + (e.money || 0)),
+      injury: Math.max(0, state.injury + (e.injury || 0)),
+      authority: Math.max(0, state.authority + (e.authority || 0)),
+      knowledge: Math.max(0, state.knowledge + (e.knowledge || 0)),
+      currentSceneId: choice.nextSceneId,
+      inventory: [...state.inventory],
+      clues: [...state.clues],
+      history: [...state.history, choice.nextSceneId],
+      day: state.day + 1
     };
 
-    await ctx.db.patch(state._id, newState);
-
-    return newState;
-  },
-});
-
-export const getRandomEncounter = query({
-  args: {},
-  returns: v.any(),
-  handler: async (ctx: QueryCtx) => {
-    const state = await ctx.db.query("gameState").first();
-    if (!state || !state.currentEncounterId) {
-       // Fallback for safety
-       const any = await ctx.db.query("encounters").first();
-       return any;
+    if (choice.itemGained && !newState.inventory.includes(choice.itemGained)) {
+      newState.inventory.push(choice.itemGained);
     }
-    return await ctx.db.get(state.currentEncounterId as any);
+    if (choice.clueGained && !newState.clues.includes(choice.clueGained)) {
+      newState.clues.push(choice.clueGained);
+    }
+
+    await ctx.db.patch(state._id, newState);
+    return newState;
   },
 });
 
 export const getUpgrades = query({
   args: {},
-  returns: v.array(v.any()),
   handler: async (ctx: QueryCtx) => {
-    return await ctx.db.query("upgrades").collect();
+    return []; // Future-proofing
   },
 });
 
 export const getContacts = query({
   args: {},
-  returns: v.array(v.any()),
   handler: async (ctx: QueryCtx) => {
     return await ctx.db.query("contacts").collect();
   },
@@ -225,74 +195,7 @@ export const getContacts = query({
 
 export const getMessages = query({
   args: {},
-  returns: v.array(v.any()),
   handler: async (ctx: QueryCtx) => {
     return await ctx.db.query("messages").order("desc").collect();
-  },
-});
-
-export const callContact = mutation({
-  args: { contactId: v.id("contacts") },
-  returns: v.object({ success: v.boolean(), message: v.string() }),
-  handler: async (ctx: MutationCtx, args) => {
-    const state = await ctx.db.query("gameState").first();
-    if (!state) throw new Error("Game not initialized");
-
-    const contact = await ctx.db.get(args.contactId);
-    if (!contact) throw new Error("Contact not found");
-
-    if (state.resources < contact.cost) {
-      return { success: false, message: "Not enough resources to make the call." };
-    }
-
-    if (contact.status !== "available") {
-      return { success: false, message: "Contact is currently unavailable." };
-    }
-
-    let effects = { health: 0, sanity: 0, resources: -contact.cost };
-    let feedback = "";
-
-    if (contact.name === "Father O'Malley") {
-      effects.sanity = 30;
-      feedback = "O'Malley performs a blessing over the phone. You feel calmer.";
-    } else if (contact.name === "The Fence") {
-      feedback = "The Fence drops off some supplies at your bunker. (+20 resources)";
-      effects.resources += 20;
-    }
-
-    await ctx.db.patch(state._id, {
-      health: Math.min(100, state.health + effects.health),
-      sanity: Math.min(100, state.sanity + effects.sanity),
-      resources: Math.max(0, state.resources + effects.resources),
-    });
-
-    return { success: true, message: feedback };
-  },
-});
-
-export const buyUpgrade = mutation({
-  args: { upgradeId: v.id("upgrades") },
-  returns: v.boolean(),
-  handler: async (ctx: MutationCtx, args) => {
-    const state = await ctx.db.query("gameState").first();
-    if (!state) throw new Error("Game not initialized");
-
-    const upgrade = await ctx.db.get(args.upgradeId);
-    if (!upgrade) throw new Error("Upgrade not found");
-
-    if (state.resources < upgrade.cost) {
-      throw new Error("Not enough resources");
-    }
-
-    await ctx.db.patch(state._id, {
-      resources: state.resources - upgrade.cost,
-    });
-
-    await ctx.db.patch(upgrade._id, {
-      level: upgrade.level + 1,
-      cost: Math.floor(upgrade.cost * 1.5),
-    });
-
-    return true;
   },
 });
