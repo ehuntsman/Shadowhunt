@@ -63,6 +63,7 @@ export default defineSchema({
     from: v.string(),
     text: v.string(),
     read: v.boolean(),
+    type: v.optional(v.string()), // "request", "hint", "flavor"
     timestamp: v.number(),
   }),
 });

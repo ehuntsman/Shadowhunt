@@ -1,8 +1,8 @@
 import React from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { View, Text, Button, SafeAreaView, ScrollView, Card, CardHeader, CardTitle, CardContent, Spinner } from "@/components/ui";
-import { Phone, MessageSquare, User, Info, MoreHorizontal } from "lucide-react-native";
+import { View, Text, Button, SafeAreaView, ScrollView, Card, CardContent, Spinner } from "@/components/ui";
+import { Phone, MessageSquare, User, Users, Info, MoreHorizontal } from "lucide-react-native";
 import { Alert } from "react-native";
 import { Badge } from "@/components/ui/badge";
 
@@ -10,13 +10,21 @@ export default function DirectoryScreen() {
   const gameState = useQuery(api.game.getGameState);
   const contacts = useQuery(api.game.getContacts);
   const messages = useQuery(api.game.getMessages);
-  // Re-use logic or adapt for investigation theme
-  // For now we just show the directory list
 
   if (gameState === undefined || contacts === undefined || messages === undefined) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center">
         <Spinner size="large" />
+      </SafeAreaView>
+    );
+  }
+
+  if (!gameState) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center p-6 bg-slate-50">
+        <Text variant="p" className="text-center text-muted-foreground italic">
+          Start your investigation to access the directory.
+        </Text>
       </SafeAreaView>
     );
   }
@@ -50,7 +58,7 @@ export default function DirectoryScreen() {
 
            {messages.length > 0 ? (
              <View className="gap-3">
-               {messages.map((msg, i) => (
+               {messages.map((msg: any, i: number) => (
                  <View key={i} className={`p-4 rounded-xl border ${!msg.read ? 'bg-white border-slate-200 shadow-sm' : 'bg-transparent border-slate-100'}`}>
                     <View className="flex-row items-center mb-2">
                        <Text className="font-bold text-[10px] uppercase tracking-wider text-slate-400 mr-2">{msg.from}</Text>
@@ -69,7 +77,7 @@ export default function DirectoryScreen() {
         <Text variant="h3" className="mb-5 font-serif text-xl tracking-tight">Professional Network</Text>
         
         <View className="gap-4">
-          {contacts.map((contact) => (
+          {contacts.map((contact: any) => (
             <Card key={contact._id} className="border-none bg-white shadow-sm overflow-hidden">
               <CardContent className="p-5">
                 <View className="flex-row items-start justify-between mb-3">

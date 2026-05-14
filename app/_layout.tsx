@@ -14,9 +14,6 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { ThemeProvider as UIThemeProvider } from '@/components/ui/theme';
 
 const getConvexUrl = () => {
-  if (typeof window === 'undefined') {
-    return "http://127.0.0.1:3210";
-  }
   const url = process.env.EXPO_PUBLIC_CONVEX_URL;
   if (!url) {
     console.warn("EXPO_PUBLIC_CONVEX_URL is not set — Convex will not connect until .env.local is configured and the dev server is restarted.");
