@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Crosshair, Home } from "lucide-react-native";
+import { Crosshair, Home, Book } from "lucide-react-native";
 import { Platform } from "react-native";
 
 import { HapticTab } from "@/components/HapticTab";
@@ -42,6 +42,13 @@ export default function TabLayout() {
         options={{
           title: "Bunker",
           tabBarIcon: ({ color }) => <Home size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="contacts"
+        options={{
+          title: "Black Book",
+          tabBarIcon: ({ color }) => <Book size={22} color={color} />,
         }}
       />
     </Tabs>

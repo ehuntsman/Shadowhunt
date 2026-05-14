@@ -51,4 +51,17 @@ export default defineSchema({
     description: v.string(),
     cost: v.number(),
   }),
+  contacts: defineTable({
+    name: v.string(),
+    description: v.string(),
+    type: v.string(), // "intel", "merchant", "backup"
+    status: v.string(), // "available", "busy", "locked"
+    cost: v.number(),
+  }),
+  messages: defineTable({
+    from: v.string(),
+    text: v.string(),
+    read: v.boolean(),
+    type: v.string(), // "request", "hint", "flavor"
+  }),
 });

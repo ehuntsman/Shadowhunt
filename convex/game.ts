@@ -111,6 +111,30 @@ export const initializeGame = mutation({
       }
     }
 
+    // Seed contacts
+    const existingContacts = await ctx.db.query("contacts").collect();
+    if (existingContacts.length === 0) {
+      const contacts = [
+        { name: "Father O'Malley", description: "Provides spiritual protection and sanity restores.", type: "intel", status: "available", cost: 20 },
+        { name: "The Fence", description: "Trades resources for rare items.", type: "merchant", status: "available", cost: 40 },
+        { name: "Sgt. Miller", description: "Ex-military backup for dangerous hunts.", type: "backup", status: "locked", cost: 60 }
+      ];
+      for (const c of contacts) {
+        await ctx.db.insert("contacts", c);
+      }
+    }
+
+    // Seed initial message
+    const existingMessages = await ctx.db.query("messages").collect();
+    if (existingMessages.length === 0) {
+      await ctx.db.insert("messages", {
+        from: "Unknown",
+        text: "Don't trust the scratching. It's not a dog.",
+        read: false,
+        type: "hint"
+      });
+    }
+
     return stateId;
   },
 });
@@ -188,6 +212,61 @@ export const getUpgrades = query({
   returns: v.array(v.any()),
   handler: async (ctx: QueryCtx) => {
     return await ctx.db.query("upgrades").collect();
+  },
+});
+
+export const getContacts = query({
+  args: {},
+  returns: v.array(v.any()),
+  handler: async (ctx: QueryCtx) => {
+    return await ctx.db.query("contacts").collect();
+  },
+});
+
+export const getMessages = query({
+  args: {},
+  returns: v.array(v.any()),
+  handler: async (ctx: QueryCtx) => {
+    return await ctx.db.query("messages").order("desc").collect();
+  },
+});
+
+export const callContact = mutation({
+  args: { contactId: v.id("contacts") },
+  returns: v.object({ success: v.boolean(), message: v.string() }),
+  handler: async (ctx: MutationCtx, args) => {
+    const state = await ctx.db.query("gameState").first();
+    if (!state) throw new Error("Game not initialized");
+
+    const contact = await ctx.db.get(args.contactId);
+    if (!contact) throw new Error("Contact not found");
+
+    if (state.resources < contact.cost) {
+      return { success: false, message: "Not enough resources to make the call." };
+    }
+
+    if (contact.status !== "available") {
+      return { success: false, message: "Contact is currently unavailable." };
+    }
+
+    let effects = { health: 0, sanity: 0, resources: -contact.cost };
+    let feedback = "";
+
+    if (contact.name === "Father O'Malley") {
+      effects.sanity = 30;
+      feedback = "O'Malley performs a blessing over the phone. You feel calmer.";
+    } else if (contact.name === "The Fence") {
+      feedback = "The Fence drops off some supplies at your bunker. (+20 resources)";
+      effects.resources += 20;
+    }
+
+    await ctx.db.patch(state._id, {
+      health: Math.min(100, state.health + effects.health),
+      sanity: Math.min(100, state.sanity + effects.sanity),
+      resources: Math.max(0, state.resources + effects.resources),
+    });
+
+    return { success: true, message: feedback };
   },
 });
 
