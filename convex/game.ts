@@ -1,158 +1,178 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { QueryCtx, MutationCtx } from "./_generated/server";
 
 export const getGameState = query({
   args: {},
-  handler: async (ctx: QueryCtx) => {
-    const state = await ctx.db.query("gameState").first();
-    return state || null;
+  handler: async (ctx) => {
+    return await ctx.db.query("gameState").first();
   },
 });
 
 export const getCurrentScene = query({
   args: {},
-  handler: async (ctx: QueryCtx) => {
+  handler: async (ctx) => {
     const state = await ctx.db.query("gameState").first();
     if (!state) return null;
-    return await ctx.db.query("scenes")
+    return await ctx.db
+      .query("scenes")
       .withIndex("by_sceneId", (q) => q.eq("sceneId", state.currentSceneId))
       .first();
+  },
+});
+
+export const getContacts = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("contacts").collect();
+  },
+});
+
+export const getMessages = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").order("desc").collect();
   },
 });
 
 export const initializeGame = mutation({
   args: {},
   handler: async (ctx: MutationCtx) => {
+    // 1. Clear old data
     const existing = await ctx.db.query("gameState").first();
-    if (existing) {
-      await ctx.db.delete(existing._id);
-    }
+    if (existing) await ctx.db.delete(existing._id);
+    
+    const oldScenes = await ctx.db.query("scenes").collect();
+    for (const s of oldScenes) await ctx.db.delete(s._id);
 
-    // Seed initial scenes
-    const initialScenes = [
+    // 2. Define 3 Robust Scenarios
+    const scenarios = [
       {
-        sceneId: "town_arrival",
-        title: "Roadside Stop",
-        text: "A small roadside town has reported unusual incidents near the highway. The air is thick with the scent of pine and exhaust.",
+        sceneId: "start",
+        title: "The Roadside Diner",
+        text: "It's 2 AM. The neon sign of 'Mama's Kitchen' flickers, casting a sickly green glow over the parking lot. Inside, a lone waitress is cleaning the counter. She looks like she's seen a lot, but doesn't talk much to strangers.",
         type: "investigation",
-        location: "Oakhaven",
+        location: "Oakhaven Outskirts",
         choices: [
           {
-            text: "Speak with the clerk",
-            effects: { trust: 1, stress: 0 },
-            nextSceneId: "clerk_dialogue"
+            text: "Slip her a $20 for info",
+            effects: { money: -20, trust: 15, knowledge: 5 },
+            nextSceneId: "gas_station",
+            clueGained: "A napkin with 'Route 9, Pump 4' scribbled on it."
           },
           {
-            text: "Investigate the highway",
-            effects: { stress: 2, knowledge: 1 },
-            nextSceneId: "highway_inspection"
+            text: "Flash your old Investigator Badge",
+            effects: { authority: 15, reputation: -10, stress: 5 },
+            nextSceneId: "gas_station",
+          },
+          {
+            text: "Order coffee and listen in",
+            effects: { stress: -5, knowledge: 2, money: -5 },
+            nextSceneId: "gas_station"
           }
         ]
       },
       {
-        sceneId: "clerk_dialogue",
-        title: "The Gas Station",
-        text: "The clerk eyes your badge with a mix of suspicion and relief. 'You here about the missing freight?'",
-        type: "dialogue",
-        location: "Oakhaven",
+        sceneId: "gas_station",
+        title: "The Abandoned Station",
+        text: "The pumps are rusted shut, and the air smells of old oil and something... metallic. A heavy chain locks the main office, but a side window is cracked open. You hear a scratching sound from inside.",
+        type: "exploration",
+        location: "Route 9",
         choices: [
           {
-            text: "Ask about the witnesses",
-            effects: { reputation: 1, knowledge: 2 },
-            nextSceneId: "town_arrival" // Loop for now
+            text: "Climb through the cracked window",
+            effects: { injury: 10, stress: 15, knowledge: 20 },
+            nextSceneId: "woods_trail",
+            itemGained: "Rusted Crowbar"
           },
           {
-            text: "Buy a local map",
-            effects: { money: -10 },
-            nextSceneId: "town_arrival",
-            itemGained: "Local Map"
+            text: "Search the dumpster out back",
+            effects: { injury: 5, reputation: -10, knowledge: 5 },
+            nextSceneId: "woods_trail",
+            clueGained: "A blood-stained work shirt with the name 'Elias'."
+          },
+          {
+            text: "Wait in your car and observe",
+            effects: { stress: 10 },
+            nextSceneId: "woods_trail"
           }
         ]
       },
       {
-        sceneId: "highway_inspection",
-        title: "Route 42",
-        text: "Deep tire tracks lead off the road and into the brush. Something heavy was dragged here.",
-        type: "investigation",
-        location: "Oakhaven",
+        sceneId: "woods_trail",
+        title: "The Overgrown Trail",
+        text: "The trail leads deep into the Blackwood Forest. The trees here grow at impossible angles, and your flashlight beam seems to be swallowed by the darkness. You find a circle of stones blocking the path.",
+        type: "encounter",
+        location: "Blackwood Forest",
         choices: [
           {
-            text: "Follow the tracks",
-            effects: { injury: 1, stress: 5 },
-            nextSceneId: "town_arrival"
+            text: "Disrupt the stone circle",
+            effects: { stress: 25, authority: 10, knowledge: 15 },
+            nextSceneId: "start", // Loop for demo
+            itemGained: "Polished Black Stone"
           },
           {
-            text: "Return to town",
-            effects: { authority: 1 },
-            nextSceneId: "town_arrival"
+            text: "Use Crowbar to pry a stone loose",
+            effects: { injury: 15, knowledge: 10 },
+            nextSceneId: "start",
+            itemRequired: "Rusted Crowbar",
+            clueGained: "The stones are warm to the touch."
+          },
+          {
+            text: "Leave an offering of money",
+            effects: { money: -10, trust: 20, stress: -10 },
+            nextSceneId: "start"
           }
         ]
       }
     ];
 
-    for (const scene of initialScenes) {
-      const existingScene = await ctx.db.query("scenes")
-        .withIndex("by_sceneId", q => q.eq("sceneId", scene.sceneId))
-        .first();
-      if (!existingScene) {
-        await ctx.db.insert("scenes", scene);
-      }
-    }
-
-    // Seed initial contacts
-    const contacts = [
-      { name: "Agent K", role: "Federal Liaison", description: "Provides authority clearance.", type: "professional", status: "available", cost: 50 },
-      { name: "Old Ben", role: "Local Witness", description: "Knows the town's history.", type: "local", status: "available", cost: 0 }
-    ];
-    for (const contact of contacts) {
-      const existingContact = await ctx.db.query("contacts").filter(q => q.eq(q.field("name"), contact.name)).first();
-      if (!existingContact) await ctx.db.insert("contacts", contact);
+    for (const scene of scenarios) {
+      await ctx.db.insert("scenes", scene);
     }
 
     return await ctx.db.insert("gameState", {
-      trust: 10,
-      reputation: 10,
-      stress: 0,
+      trust: 50,
+      reputation: 20,
+      stress: 10,
       money: 100,
       injury: 0,
       authority: 0,
-      knowledge: 0,
-      currentLocation: "Oakhaven",
-      currentSceneId: "town_arrival",
+      knowledge: 10,
+      currentLocation: "Oakhaven Outskirts",
+      currentSceneId: "start",
       day: 1,
-      inventory: [],
+      inventory: ["Flashlight", "Old Wallet"],
       clues: [],
-      history: ["town_arrival"],
+      history: ["start"],
     });
   },
 });
 
 export const makeChoice = mutation({
-  args: { 
+  args: {
     choiceIndex: v.number(),
-    sceneId: v.string()
+    sceneId: v.string(),
   },
-  handler: async (ctx: MutationCtx, args) => {
+  handler: async (ctx, args) => {
     const state = await ctx.db.query("gameState").first();
-    if (!state) throw new Error("Game not initialized");
+    if (!state) throw new Error("No game state");
 
-    const scene = await ctx.db.query("scenes")
-      .withIndex("by_sceneId", q => q.eq("sceneId", args.sceneId))
+    const scene = await ctx.db
+      .query("scenes")
+      .withIndex("by_sceneId", (q) => q.eq("sceneId", args.sceneId))
       .first();
+
     if (!scene) throw new Error("Scene not found");
 
     const choice = scene.choices[args.choiceIndex];
     if (!choice) throw new Error("Choice not found");
 
-    // Requirement checks
     if (choice.itemRequired && !state.inventory.includes(choice.itemRequired)) {
-      throw new Error(`Requires: ${choice.itemRequired}`);
+      throw new Error(`You need the ${choice.itemRequired}.`);
     }
 
-    // Stat logic
     const e = choice.effects;
-    const newState = {
+    const updates: any = {
       trust: Math.max(0, state.trust + (e.trust || 0)),
       reputation: Math.max(0, state.reputation + (e.reputation || 0)),
       stress: Math.max(0, state.stress + (e.stress || 0)),
@@ -161,41 +181,19 @@ export const makeChoice = mutation({
       authority: Math.max(0, state.authority + (e.authority || 0)),
       knowledge: Math.max(0, state.knowledge + (e.knowledge || 0)),
       currentSceneId: choice.nextSceneId,
-      inventory: [...state.inventory],
-      clues: [...state.clues],
       history: [...state.history, choice.nextSceneId],
-      day: state.day + 1
+      day: state.day + (choice.nextSceneId === "start" ? 1 : 0) // Next day if we loop back
     };
 
-    if (choice.itemGained && !newState.inventory.includes(choice.itemGained)) {
-      newState.inventory.push(choice.itemGained);
-    }
-    if (choice.clueGained && !newState.clues.includes(choice.clueGained)) {
-      newState.clues.push(choice.clueGained);
+    if (choice.itemGained) {
+      updates.inventory = [...state.inventory, choice.itemGained];
     }
 
-    await ctx.db.patch(state._id, newState);
-    return newState;
-  },
-});
+    if (choice.clueGained) {
+      updates.clues = [...state.clues, choice.clueGained];
+    }
 
-export const getUpgrades = query({
-  args: {},
-  handler: async (ctx: QueryCtx) => {
-    return []; // Future-proofing
-  },
-});
-
-export const getContacts = query({
-  args: {},
-  handler: async (ctx: QueryCtx) => {
-    return await ctx.db.query("contacts").collect();
-  },
-});
-
-export const getMessages = query({
-  args: {},
-  handler: async (ctx: QueryCtx) => {
-    return await ctx.db.query("messages").order("desc").collect();
+    await ctx.db.patch(state._id, updates);
+    return updates;
   },
 });

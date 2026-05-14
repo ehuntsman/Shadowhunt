@@ -3,13 +3,12 @@ import { v } from "convex/values";
 
 export default defineSchema({
   gameState: defineTable({
-    // Narrative Stats
     trust: v.number(),
     reputation: v.number(),
     stress: v.number(),
     money: v.number(),
     injury: v.number(),
-    authority: v.number(), // Attention from authorities
+    authority: v.number(), 
     knowledge: v.number(),
     
     currentLocation: v.string(),
@@ -17,14 +16,14 @@ export default defineSchema({
     day: v.number(),
     inventory: v.array(v.string()),
     clues: v.array(v.string()),
-    history: v.array(v.string()), // IDs of scenes visited
+    history: v.array(v.string()), 
   }),
 
   scenes: defineTable({
     sceneId: v.string(),
     title: v.string(),
     text: v.string(),
-    type: v.string(), // "investigation", "travel", "dialogue"
+    type: v.string(), 
     location: v.string(),
     backgroundImage: v.optional(v.string()),
     choices: v.array(v.object({
@@ -42,11 +41,6 @@ export default defineSchema({
       itemRequired: v.optional(v.string()),
       itemGained: v.optional(v.string()),
       clueGained: v.optional(v.string()),
-      condition: v.optional(v.object({
-        stat: v.string(),
-        value: v.number(),
-        operator: v.string(), // "gt", "lt", "eq"
-      })),
     })),
   }).index("by_sceneId", ["sceneId"]),
 
@@ -54,7 +48,7 @@ export default defineSchema({
     name: v.string(),
     role: v.string(),
     description: v.string(),
-    type: v.string(), // "intel", "professional", "local"
+    type: v.string(), 
     status: v.string(), 
     cost: v.number(),
   }),
@@ -63,7 +57,7 @@ export default defineSchema({
     from: v.string(),
     text: v.string(),
     read: v.boolean(),
-    type: v.optional(v.string()), // "request", "hint", "flavor"
+    type: v.optional(v.string()), 
     timestamp: v.number(),
   }),
 });
