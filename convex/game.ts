@@ -47,90 +47,94 @@ export const initializeGame = mutation({
       {
         sceneId: "start",
         title: "The Roadside Diner",
-        text: "It's 2 AM. The neon sign of 'Mama's Kitchen' flickers, casting a sickly green glow over the parking lot. Inside, a lone waitress is cleaning the counter. She looks like she's seen a lot, but doesn't talk much to strangers.",
+        text: "Mama's Kitchen. The coffee is burnt and the atmosphere is heavy. You feel like the truth is buried somewhere in this grease-stained booth.",
         type: "investigation",
         location: "Oakhaven Outskirts",
-        backgroundImage: "diner_exterior", // Placeholder for user to map to assets
         choices: [
           {
-            text: "Slip her a $20 for info",
+            text: "Order coffee and watch the patrons",
             risk: "Low",
-            effects: { money: -20, trust: 15, knowledge: 5 },
-            nextSceneId: "gas_station",
-            clueGained: "A napkin with 'Route 9, Pump 4' scribbled on it."
+            effects: { money: -5, stress: -5, knowledge: 2 },
+            nextSceneId: "start", // STAY
           },
           {
-            text: "Flash your old Investigator Badge",
+            text: "Bribe the waitress for local rumors",
+            risk: "Low",
+            effects: { money: -20, trust: 15, knowledge: 10 },
+            nextSceneId: "start", // STAY
+            clueGained: "Someone saw 'lights' near the old Gas Station."
+          },
+          {
+            text: "Search the payphone for discarded notes",
             risk: "Medium",
-            effects: { authority: 15, reputation: -10, stress: 5 },
-            nextSceneId: "gas_station",
+            effects: { stress: 5, knowledge: 5 },
+            nextSceneId: "start", // STAY
+            itemGained: "Scribbled Napkin"
           },
           {
-            text: "Order coffee and listen in",
+            text: "Drive to the Abandoned Gas Station",
             risk: "Low",
-            effects: { stress: -5, knowledge: 2, money: -5 },
-            nextSceneId: "gas_station"
+            effects: { stress: 5 },
+            nextSceneId: "gas_station" // MOVE
           }
         ]
       },
       {
         sceneId: "gas_station",
-        title: "The Abandoned Station",
-        text: "The pumps are rusted shut, and the air smells of old oil and something... metallic. A heavy chain locks the main office, but a side window is cracked open. You hear a scratching sound from inside.",
+        title: "Abandoned Station",
+        text: "Pump 4 is covered in a strange, viscous black fluid. The air is deathly silent. You need to find out what happened here.",
         type: "exploration",
         location: "Route 9",
-        backgroundImage: "gas_station_night",
         choices: [
           {
-            text: "Climb through the cracked window",
+            text: "Inspect the black fluid on Pump 4",
             risk: "High",
-            effects: { injury: 15, stress: 20, knowledge: 25 },
-            nextSceneId: "woods_trail",
+            effects: { injury: 10, stress: 15, knowledge: 20 },
+            nextSceneId: "gas_station", // STAY
+            clueGained: "The fluid is organic... and still warm."
+          },
+          {
+            text: "Search the service bay for tools",
+            risk: "Medium",
+            effects: { injury: 5, knowledge: 5 },
+            nextSceneId: "gas_station", // STAY
             itemGained: "Rusted Crowbar"
           },
           {
-            text: "Search the dumpster out back",
-            risk: "Medium",
-            effects: { injury: 5, reputation: -10, knowledge: 10 },
-            nextSceneId: "woods_trail",
-            clueGained: "A blood-stained work shirt with the name 'Elias'."
-          },
-          {
-            text: "Wait in your car and observe",
-            risk: "Low",
+            text: "Follow the muddy tracks into the woods",
+            risk: "High",
             effects: { stress: 10 },
-            nextSceneId: "woods_trail"
+            nextSceneId: "woods_trail" // MOVE
           }
         ]
       },
       {
         sceneId: "woods_trail",
-        title: "The Overgrown Trail",
-        text: "The trail leads deep into the Blackwood Forest. The trees here grow at impossible angles. You find a circle of stones blocking the path.",
+        title: "Blackwood Trail",
+        text: "The deeper you go, the more the trees seem to lean toward you. A circle of stones marks a clearing ahead.",
         type: "encounter",
         location: "Blackwood Forest",
-        backgroundImage: "forest_trail",
         choices: [
           {
-            text: "Disrupt the stone circle",
-            risk: "High",
-            effects: { stress: 30, authority: 15, knowledge: 20 },
-            nextSceneId: "start",
-            itemGained: "Polished Black Stone"
-          },
-          {
-            text: "Use Crowbar to pry a stone loose",
+            text: "Examine the carvings on the stones",
             risk: "Medium",
-            effects: { injury: 15, knowledge: 15 },
-            nextSceneId: "start",
-            itemRequired: "Rusted Crowbar",
-            clueGained: "The stones are warm to the touch."
+            effects: { stress: 10, knowledge: 15 },
+            nextSceneId: "woods_trail", // STAY
+            clueGained: "Ancient symbols for 'Hunter' and 'Prey'."
           },
           {
-            text: "Leave an offering of money",
+            text: "Pry a stone loose with your Crowbar",
+            risk: "High",
+            effects: { injury: 15, knowledge: 10 },
+            nextSceneId: "woods_trail", // STAY
+            itemRequired: "Rusted Crowbar",
+            itemGained: "Glowing Amber Fragment"
+          },
+          {
+            text: "Return to the Diner to regroup",
             risk: "Low",
-            effects: { money: -20, trust: 25, stress: -15 },
-            nextSceneId: "start"
+            effects: { stress: -10 },
+            nextSceneId: "start" // MOVE
           }
         ]
       }
@@ -151,7 +155,7 @@ export const initializeGame = mutation({
       currentLocation: "Oakhaven Outskirts",
       currentSceneId: "start",
       day: 1,
-      inventory: ["Flashlight", "Old Wallet"],
+      inventory: ["Flashlight"],
       clues: [],
       history: ["start"],
     });
@@ -190,26 +194,30 @@ export const makeChoice = mutation({
       injury: Math.max(0, state.injury + (e.injury || 0)),
       authority: Math.max(0, state.authority + (e.authority || 0)),
       knowledge: Math.max(0, state.knowledge + (e.knowledge || 0)),
-      currentSceneId: choice.nextSceneId,
-      history: [...state.history, choice.nextSceneId],
-      day: state.day + (choice.nextSceneId === "start" ? 1 : 0)
     };
 
-    // Calculate Outcome Text for the Log
+    // ONLY MOVE if the nextSceneId is different from current
+    if (choice.nextSceneId !== state.currentSceneId) {
+      updates.currentSceneId = choice.nextSceneId;
+      updates.history = [...state.history, choice.nextSceneId];
+      if (choice.nextSceneId === "start") {
+        updates.day = state.day + 1;
+      }
+    }
+
+    // Outcome Log
     const changes = [];
-    
-    // Hide exact amounts for knowledge and others, but show money/items explicitly
     if (e.money) changes.push(`${e.money > 0 ? '+$' : '-$'}${Math.abs(e.money)}`);
     if (choice.itemGained) changes.push(`+ ${choice.itemGained}`);
     
-    // Subtle indicators for others
+    // Obfuscated results
     if (e.trust) changes.push(e.trust > 0 ? "Trust Gained" : "Trust Lost");
     if (e.knowledge) changes.push("New Insights");
     if (e.stress && e.stress > 0) changes.push("Increased Stress");
     if (e.injury && e.injury > 0) changes.push("Sustained Injury");
-    if (choice.clueGained) changes.push(`New Lead`);
+    if (choice.clueGained) changes.push(`New Lead Found`);
 
-    updates.latestOutcome = changes.length > 0 ? changes.join(" • ") : "Proceeded.";
+    updates.latestOutcome = changes.length > 0 ? changes.join(" • ") : "Investigated area.";
 
     if (choice.itemGained) {
       updates.inventory = [...state.inventory, choice.itemGained];
