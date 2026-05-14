@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { View, Text, Button, SafeAreaView, Spinner, ScrollView, Card, CardContent } from "@/components/ui";
+import { View, Text, Button, SafeAreaView, Spinner, ScrollView, Card, CardContent, Badge } from "@/components/ui";
 import { 
   Users, // Trust
   Star, // Reputation
@@ -15,7 +15,8 @@ import {
   MapPin,
   CheckCircle2,
   Package,
-  Search
+  Search,
+  AlertTriangle
 } from "lucide-react-native";
 import { Alert } from "react-native";
 
@@ -76,6 +77,15 @@ export default function InvestigationScreen() {
     </View>
   );
 
+  const getRiskColor = (risk?: string) => {
+    switch (risk) {
+      case "High": return "text-red-500 bg-red-50 border-red-100";
+      case "Medium": return "text-amber-600 bg-amber-50 border-amber-100";
+      case "Low": return "text-emerald-600 bg-emerald-50 border-emerald-100";
+      default: return "text-slate-400 bg-slate-50 border-slate-100";
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-[#fbfbfb]" edges={["top"]}>
       {/* Narrative Stats Header */}
@@ -99,7 +109,7 @@ export default function InvestigationScreen() {
                </Text>
             </View>
             
-            <Card className="mb-8 border-none bg-white shadow-xl rounded-3xl overflow-hidden min-h-[300px]">
+            <Card className="mb-8 border-none bg-white shadow-xl rounded-3xl overflow-hidden min-h-[200px]">
               <CardContent className="p-8">
                  <Text variant="h2" className="font-serif text-3xl mb-6 leading-tight text-slate-900">
                    {currentScene.title}
@@ -108,53 +118,71 @@ export default function InvestigationScreen() {
                  <Text className="text-lg leading-relaxed text-slate-700 font-serif">
                    {currentScene.text}
                  </Text>
-
-                 {/* Action Feedback Overlay */}
-                 {gameState.lastAction && (
-                    <View className="absolute inset-0 bg-white/95 p-8 justify-center items-center rounded-3xl z-20">
-                        <CheckCircle2 size={48} className="text-slate-900 mb-4" />
-                        <Text className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Outcome</Text>
-                        <Text className="text-xl font-serif text-center mb-6 text-slate-900">"{gameState.lastAction.text}"</Text>
-                        
-                        <View className="bg-slate-50 p-6 rounded-2xl w-full mb-8">
-                           <Text className="text-slate-800 text-center font-medium mb-4">{gameState.lastAction.resultText}</Text>
-                           
-                           {gameState.lastAction.itemGained && (
-                             <View className="flex-row items-center justify-center mb-2">
-                                <Package size={14} className="text-blue-500 mr-2" />
-                                <Text className="text-blue-500 text-sm font-bold">Acquired: {gameState.lastAction.itemGained}</Text>
-                             </View>
-                           )}
-
-                           {gameState.lastAction.clueGained && (
-                             <View className="flex-row items-center justify-center">
-                                <Search size={14} className="text-amber-500 mr-2" />
-                                <Text className="text-amber-500 text-sm font-bold italic">New Lead: {gameState.lastAction.clueGained}</Text>
-                             </View>
-                           )}
-                        </View>
-
-                        <Button onPress={() => confirmAction()} className="w-full h-14 rounded-2xl bg-slate-900 active:bg-slate-800">
-                           <Text className="text-white font-bold tracking-widest uppercase text-xs">Continue Investigation</Text>
-                        </Button>
-                    </View>
-                 )}
               </CardContent>
             </Card>
 
             <View className="gap-3">
-               {currentScene.choices.map((choice, i) => (
-                 <Button 
-                   key={i} 
-                   variant="outline" 
-                   onPress={() => handleChoice(i)}
-                   className="justify-between h-auto py-5 px-6 border-slate-200 bg-white active:bg-slate-50 rounded-2xl shadow-sm"
-                   disabled={loading || !!gameState.lastAction}
-                 >
-                   <Text className="flex-1 text-slate-800 text-left font-medium mr-4 leading-tight">{choice.text}</Text>
-                   <ChevronRight size={18} className="text-slate-300" />
-                 </Button>
-               ))}
+               {!gameState.lastAction ? (
+                 currentScene.choices.map((choice: any, i: number) => {
+                   const cost = choice.effects.money;
+                   return (
+                    <Button 
+                      key={i} 
+                      variant="outline" 
+                      onPress={() => handleChoice(i)}
+                      className="justify-between h-auto py-5 px-6 border-slate-200 bg-white active:bg-slate-50 rounded-2xl shadow-sm"
+                      disabled={loading}
+                    >
+                      <View className="flex-1 mr-4">
+                        <View className="flex-row items-center mb-2">
+                           {choice.risk && (
+                             <View className={`px-2 py-0.5 rounded-full border ${getRiskColor(choice.risk)} mr-2`}>
+                                <Text className="text-[9px] font-bold uppercase tracking-tighter">{choice.risk} Risk</Text>
+                             </View>
+                           )}
+                           {cost && (
+                              <View className="px-2 py-0.5 rounded-full border border-emerald-100 bg-emerald-50">
+                                 <Text className="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter">Cost: ${Math.abs(cost)}</Text>
+                              </View>
+                           )}
+                        </View>
+                        <Text className="text-slate-800 text-left font-medium leading-tight">{choice.text}</Text>
+                      </View>
+                      <ChevronRight size={18} className="text-slate-300" />
+                    </Button>
+                   );
+                 })
+               ) : (
+                 <View className="bg-slate-900 p-8 rounded-3xl shadow-xl">
+                    <View className="items-center mb-6">
+                        <CheckCircle2 size={40} className="text-white mb-4" />
+                        <Text className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-2">Action Outcome</Text>
+                        <Text className="text-xl font-serif text-center text-white italic">"{gameState.lastAction.text}"</Text>
+                    </View>
+                    
+                    <View className="bg-white/10 p-5 rounded-2xl w-full mb-8 border border-white/5">
+                        <Text className="text-white text-center font-medium mb-4">{gameState.lastAction.resultText}</Text>
+                        
+                        {gameState.lastAction.itemGained && (
+                          <View className="flex-row items-center justify-center mb-2">
+                             <Package size={14} className="text-blue-400 mr-2" />
+                             <Text className="text-blue-400 text-sm font-bold">Acquired: {gameState.lastAction.itemGained}</Text>
+                          </View>
+                        )}
+
+                        {gameState.lastAction.clueGained && (
+                          <View className="flex-row items-center justify-center">
+                             <Search size={14} className="text-amber-400 mr-2" />
+                             <Text className="text-amber-400 text-sm font-bold italic">New Lead: {gameState.lastAction.clueGained}</Text>
+                          </View>
+                        )}
+                    </View>
+
+                    <Button onPress={() => confirmAction()} className="w-full h-14 rounded-2xl bg-white active:bg-slate-200">
+                        <Text className="text-slate-950 font-bold tracking-widest uppercase text-xs">Continue</Text>
+                    </Button>
+                 </View>
+               )}
             </View>
           </View>
         ) : (

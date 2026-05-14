@@ -37,35 +37,36 @@ export const getMessages = query({
 export const initializeGame = mutation({
   args: {},
   handler: async (ctx: MutationCtx) => {
-    // 1. Clear old data
     const existing = await ctx.db.query("gameState").first();
     if (existing) await ctx.db.delete(existing._id);
     
     const oldScenes = await ctx.db.query("scenes").collect();
     for (const s of oldScenes) await ctx.db.delete(s._id);
 
-    // 2. Define 3 Robust Scenarios
     const scenarios = [
       {
         sceneId: "start",
         title: "The Roadside Diner",
-        text: "It's 2 AM. The neon sign of 'Mama's Kitchen' flickers, casting a sickly green glow over the parking lot. Inside, a lone waitress is cleaning the counter. She looks like she's seen a lot, but doesn't talk much to strangers.",
+        text: "It's 2 AM. The neon sign of 'Mama's Kitchen' flickers, casting a sickly green glow. Inside, a lone waitress is cleaning the counter.",
         type: "investigation",
         location: "Oakhaven Outskirts",
         choices: [
           {
             text: "Slip her a $20 for info",
+            risk: "Low",
             effects: { money: -20, trust: 15, knowledge: 5 },
             nextSceneId: "gas_station",
             clueGained: "A napkin with 'Route 9, Pump 4' scribbled on it."
           },
           {
             text: "Flash your old Investigator Badge",
+            risk: "Medium",
             effects: { authority: 15, reputation: -10, stress: 5 },
             nextSceneId: "gas_station",
           },
           {
             text: "Order coffee and listen in",
+            risk: "Low",
             effects: { stress: -5, knowledge: 2, money: -5 },
             nextSceneId: "gas_station"
           }
@@ -74,24 +75,27 @@ export const initializeGame = mutation({
       {
         sceneId: "gas_station",
         title: "The Abandoned Station",
-        text: "The pumps are rusted shut, and the air smells of old oil and something... metallic. A heavy chain locks the main office, but a side window is cracked open. You hear a scratching sound from inside.",
+        text: "The pumps are rusted shut. You hear a scratching sound from inside the main office. A side window is cracked open.",
         type: "exploration",
         location: "Route 9",
         choices: [
           {
             text: "Climb through the cracked window",
-            effects: { injury: 10, stress: 15, knowledge: 20 },
+            risk: "High",
+            effects: { injury: 15, stress: 20, knowledge: 25 },
             nextSceneId: "woods_trail",
             itemGained: "Rusted Crowbar"
           },
           {
             text: "Search the dumpster out back",
-            effects: { injury: 5, reputation: -10, knowledge: 5 },
+            risk: "Medium",
+            effects: { injury: 5, reputation: -10, knowledge: 10 },
             nextSceneId: "woods_trail",
             clueGained: "A blood-stained work shirt with the name 'Elias'."
           },
           {
             text: "Wait in your car and observe",
+            risk: "Low",
             effects: { stress: 10 },
             nextSceneId: "woods_trail"
           }
@@ -100,26 +104,29 @@ export const initializeGame = mutation({
       {
         sceneId: "woods_trail",
         title: "The Overgrown Trail",
-        text: "The trail leads deep into the Blackwood Forest. The trees here grow at impossible angles, and your flashlight beam seems to be swallowed by the darkness. You find a circle of stones blocking the path.",
+        text: "The trail leads deep into Blackwood Forest. You find a circle of stones blocking the path.",
         type: "encounter",
         location: "Blackwood Forest",
         choices: [
           {
             text: "Disrupt the stone circle",
-            effects: { stress: 25, authority: 10, knowledge: 15 },
+            risk: "High",
+            effects: { stress: 30, authority: 15, knowledge: 20 },
             nextSceneId: "start",
             itemGained: "Polished Black Stone"
           },
           {
             text: "Use Crowbar to pry a stone loose",
-            effects: { injury: 15, knowledge: 10 },
+            risk: "Medium",
+            effects: { injury: 15, knowledge: 15 },
             nextSceneId: "start",
             itemRequired: "Rusted Crowbar",
             clueGained: "The stones are warm to the touch."
           },
           {
             text: "Leave an offering of money",
-            effects: { money: -10, trust: 20, stress: -10 },
+            risk: "Low",
+            effects: { money: -20, trust: 25, stress: -15 },
             nextSceneId: "start"
           }
         ]

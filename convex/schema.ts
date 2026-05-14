@@ -35,6 +35,7 @@ export default defineSchema({
     backgroundImage: v.optional(v.string()),
     choices: v.array(v.object({
       text: v.string(),
+      risk: v.optional(v.string()), // "Low", "Medium", "High"
       effects: v.object({
         trust: v.optional(v.number()),
         reputation: v.optional(v.number()),
