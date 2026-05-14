@@ -17,6 +17,13 @@ export default defineSchema({
     inventory: v.array(v.string()),
     clues: v.array(v.string()),
     history: v.array(v.string()), 
+    lastAction: v.optional(v.object({
+      text: v.string(),
+      resultText: v.string(),
+      itemGained: v.optional(v.string()),
+      clueGained: v.optional(v.string()),
+      nextSceneId: v.string(),
+    })),
   }),
 
   scenes: defineTable({

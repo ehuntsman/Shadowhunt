@@ -107,7 +107,7 @@ export const initializeGame = mutation({
           {
             text: "Disrupt the stone circle",
             effects: { stress: 25, authority: 10, knowledge: 15 },
-            nextSceneId: "start", // Loop for demo
+            nextSceneId: "start",
             itemGained: "Polished Black Stone"
           },
           {
@@ -180,9 +180,25 @@ export const makeChoice = mutation({
       injury: Math.max(0, state.injury + (e.injury || 0)),
       authority: Math.max(0, state.authority + (e.authority || 0)),
       knowledge: Math.max(0, state.knowledge + (e.knowledge || 0)),
-      currentSceneId: choice.nextSceneId,
-      history: [...state.history, choice.nextSceneId],
-      day: state.day + (choice.nextSceneId === "start" ? 1 : 0) // Next day if we loop back
+    };
+
+    const changes = [];
+    if (e.trust) changes.push(`${e.trust > 0 ? '+' : ''}${e.trust} Trust`);
+    if (e.reputation) changes.push(`${e.reputation > 0 ? '+' : ''}${e.reputation} Rep`);
+    if (e.stress) changes.push(`${e.stress > 0 ? '+' : ''}${e.stress} Stress`);
+    if (e.money) changes.push(`${e.money > 0 ? '+$' : '-$'}${Math.abs(e.money)}`);
+    if (e.injury) changes.push(`${e.injury > 0 ? '+' : ''}${e.injury} Injury`);
+    if (e.authority) changes.push(`${e.authority > 0 ? '+' : ''}${e.authority} Authority`);
+    if (e.knowledge) changes.push(`${e.knowledge > 0 ? '+' : ''}${e.knowledge} Knowledge`);
+    
+    let resultText = changes.length > 0 ? changes.join(", ") : "Action complete.";
+
+    updates.lastAction = {
+      text: choice.text,
+      resultText,
+      nextSceneId: choice.nextSceneId,
+      itemGained: choice.itemGained,
+      clueGained: choice.clueGained,
     };
 
     if (choice.itemGained) {
@@ -195,5 +211,22 @@ export const makeChoice = mutation({
 
     await ctx.db.patch(state._id, updates);
     return updates;
+  },
+});
+
+export const confirmAction = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const state = await ctx.db.query("gameState").first();
+    if (!state || !state.lastAction) return;
+
+    const nextSceneId = state.lastAction.nextSceneId;
+    
+    await ctx.db.patch(state._id, {
+      currentSceneId: nextSceneId,
+      history: [...state.history, nextSceneId],
+      lastAction: undefined,
+      day: state.day + (nextSceneId === "start" ? 1 : 0)
+    });
   },
 });

@@ -12,7 +12,10 @@ import {
   BookOpen, // Knowledge
   RefreshCw,
   ChevronRight,
-  MapPin
+  MapPin,
+  CheckCircle2,
+  Package,
+  Search
 } from "lucide-react-native";
 import { Alert } from "react-native";
 
@@ -21,6 +24,7 @@ export default function InvestigationScreen() {
   const currentScene = useQuery(api.game.getCurrentScene);
   const initializeGame = useMutation(api.game.initializeGame);
   const makeChoice = useMutation(api.game.makeChoice);
+  const confirmAction = useMutation(api.game.confirmAction);
   const [loading, setLoading] = useState(false);
 
   if (gameState === undefined || (gameState && currentScene === undefined)) {
@@ -104,6 +108,37 @@ export default function InvestigationScreen() {
                  <Text className="text-lg leading-relaxed text-slate-700 font-serif">
                    {currentScene.text}
                  </Text>
+
+                 {/* Action Feedback Overlay */}
+                 {gameState.lastAction && (
+                    <View className="absolute inset-0 bg-white/95 p-8 justify-center items-center rounded-3xl z-20">
+                        <CheckCircle2 size={48} className="text-slate-900 mb-4" />
+                        <Text className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Outcome</Text>
+                        <Text className="text-xl font-serif text-center mb-6 text-slate-900">"{gameState.lastAction.text}"</Text>
+                        
+                        <View className="bg-slate-50 p-6 rounded-2xl w-full mb-8">
+                           <Text className="text-slate-800 text-center font-medium mb-4">{gameState.lastAction.resultText}</Text>
+                           
+                           {gameState.lastAction.itemGained && (
+                             <View className="flex-row items-center justify-center mb-2">
+                                <Package size={14} className="text-blue-500 mr-2" />
+                                <Text className="text-blue-500 text-sm font-bold">Acquired: {gameState.lastAction.itemGained}</Text>
+                             </View>
+                           )}
+
+                           {gameState.lastAction.clueGained && (
+                             <View className="flex-row items-center justify-center">
+                                <Search size={14} className="text-amber-500 mr-2" />
+                                <Text className="text-amber-500 text-sm font-bold italic">New Lead: {gameState.lastAction.clueGained}</Text>
+                             </View>
+                           )}
+                        </View>
+
+                        <Button onPress={() => confirmAction()} className="w-full h-14 rounded-2xl bg-slate-900 active:bg-slate-800">
+                           <Text className="text-white font-bold tracking-widest uppercase text-xs">Continue Investigation</Text>
+                        </Button>
+                    </View>
+                 )}
               </CardContent>
             </Card>
 
@@ -114,7 +149,7 @@ export default function InvestigationScreen() {
                    variant="outline" 
                    onPress={() => handleChoice(i)}
                    className="justify-between h-auto py-5 px-6 border-slate-200 bg-white active:bg-slate-50 rounded-2xl shadow-sm"
-                   disabled={loading}
+                   disabled={loading || !!gameState.lastAction}
                  >
                    <Text className="flex-1 text-slate-800 text-left font-medium mr-4 leading-tight">{choice.text}</Text>
                    <ChevronRight size={18} className="text-slate-300" />
