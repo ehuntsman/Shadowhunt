@@ -9,7 +9,7 @@ export default defineSchema({
     money: v.number(),
     injury: v.number(),
     authority: v.number(), 
-    knowledge: v.number(),
+    knowledge: v.number(), // This is the "Hunt Progress"
     
     currentLocation: v.string(),
     currentSceneId: v.string(),

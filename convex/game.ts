@@ -54,28 +54,35 @@ export const initializeGame = mutation({
           {
             text: "Order coffee and watch the patrons",
             risk: "Low",
-            effects: { money: -5, stress: -5, knowledge: 2 },
-            nextSceneId: "start", // STAY
+            effects: { money: -5, stress: -5, knowledge: 5 },
+            nextSceneId: "start",
           },
           {
             text: "Bribe the waitress for local rumors",
             risk: "Low",
-            effects: { money: -20, trust: 15, knowledge: 10 },
-            nextSceneId: "start", // STAY
+            effects: { money: -20, trust: 15, knowledge: 15 },
+            nextSceneId: "start",
             clueGained: "Someone saw 'lights' near the old Gas Station."
           },
           {
             text: "Search the payphone for discarded notes",
             risk: "Medium",
-            effects: { stress: 5, knowledge: 5 },
-            nextSceneId: "start", // STAY
+            effects: { stress: 5, knowledge: 10 },
+            nextSceneId: "start",
             itemGained: "Scribbled Napkin"
           },
           {
             text: "Drive to the Abandoned Gas Station",
             risk: "Low",
             effects: { stress: 5 },
-            nextSceneId: "gas_station" // MOVE
+            nextSceneId: "gas_station"
+          },
+          {
+            text: "Confront the shadow in the alley",
+            risk: "High",
+            effects: { injury: 20, stress: 10, reputation: 10 },
+            nextSceneId: "the_encounter",
+            itemRequired: "Silver Blade" // Can't do this yet
           }
         ]
       },
@@ -89,22 +96,22 @@ export const initializeGame = mutation({
           {
             text: "Inspect the black fluid on Pump 4",
             risk: "High",
-            effects: { injury: 10, stress: 15, knowledge: 20 },
-            nextSceneId: "gas_station", // STAY
+            effects: { injury: 10, stress: 15, knowledge: 25 },
+            nextSceneId: "gas_station",
             clueGained: "The fluid is organic... and still warm."
           },
           {
             text: "Search the service bay for tools",
             risk: "Medium",
-            effects: { injury: 5, knowledge: 5 },
-            nextSceneId: "gas_station", // STAY
+            effects: { injury: 5, knowledge: 10 },
+            nextSceneId: "gas_station",
             itemGained: "Rusted Crowbar"
           },
           {
             text: "Follow the muddy tracks into the woods",
             risk: "High",
             effects: { stress: 10 },
-            nextSceneId: "woods_trail" // MOVE
+            nextSceneId: "woods_trail"
           }
         ]
       },
@@ -118,23 +125,66 @@ export const initializeGame = mutation({
           {
             text: "Examine the carvings on the stones",
             risk: "Medium",
-            effects: { stress: 10, knowledge: 15 },
-            nextSceneId: "woods_trail", // STAY
+            effects: { stress: 10, knowledge: 20 },
+            nextSceneId: "woods_trail",
             clueGained: "Ancient symbols for 'Hunter' and 'Prey'."
           },
           {
             text: "Pry a stone loose with your Crowbar",
             risk: "High",
-            effects: { injury: 15, knowledge: 10 },
-            nextSceneId: "woods_trail", // STAY
+            effects: { injury: 15, knowledge: 15 },
+            nextSceneId: "woods_trail",
             itemRequired: "Rusted Crowbar",
-            itemGained: "Glowing Amber Fragment"
+            itemGained: "Silver Blade"
+          },
+          {
+            text: "The creature emerges from the brush",
+            risk: "High",
+            effects: { injury: 30, stress: 20 },
+            nextSceneId: "the_encounter"
           },
           {
             text: "Return to the Diner to regroup",
             risk: "Low",
             effects: { stress: -10 },
-            nextSceneId: "start" // MOVE
+            nextSceneId: "start"
+          }
+        ]
+      },
+      {
+        sceneId: "the_encounter",
+        title: "Face to Face",
+        text: "It's tall, gaunt, and its skin is the color of bruised plums. This is what's been haunting Oakhaven. It hasn't seen you yet.",
+        type: "hunt",
+        location: "Unknown",
+        choices: [
+          {
+            text: "Banish it with the Silver Blade",
+            risk: "High",
+            effects: { knowledge: 100, reputation: 50 },
+            nextSceneId: "victory",
+            itemRequired: "Silver Blade"
+          },
+          {
+            text: "Try to take a photo (No Weapon)",
+            risk: "High",
+            effects: { injury: 40, knowledge: 20 },
+            nextSceneId: "start"
+          }
+        ]
+      },
+      {
+        sceneId: "victory",
+        title: "The Hunt is Over",
+        text: "The creature dissolves into ash. The heavy fog lifting from Oakhaven for the first time in weeks. You've survived the hunt.",
+        type: "victory",
+        location: "Oakhaven",
+        choices: [
+          {
+            text: "Start a new case",
+            risk: "Low",
+            effects: {},
+            nextSceneId: "start"
           }
         ]
       }
@@ -151,7 +201,7 @@ export const initializeGame = mutation({
       money: 100,
       injury: 0,
       authority: 0,
-      knowledge: 10,
+      knowledge: 0, // 0% Hunt Progress
       currentLocation: "Oakhaven Outskirts",
       currentSceneId: "start",
       day: 1,
@@ -193,10 +243,9 @@ export const makeChoice = mutation({
       money: Math.max(0, state.money + (e.money || 0)),
       injury: Math.max(0, state.injury + (e.injury || 0)),
       authority: Math.max(0, state.authority + (e.authority || 0)),
-      knowledge: Math.max(0, state.knowledge + (e.knowledge || 0)),
+      knowledge: Math.min(100, state.knowledge + (e.knowledge || 0)),
     };
 
-    // ONLY MOVE if the nextSceneId is different from current
     if (choice.nextSceneId !== state.currentSceneId) {
       updates.currentSceneId = choice.nextSceneId;
       updates.history = [...state.history, choice.nextSceneId];
@@ -205,19 +254,14 @@ export const makeChoice = mutation({
       }
     }
 
-    // Outcome Log
     const changes = [];
     if (e.money) changes.push(`${e.money > 0 ? '+$' : '-$'}${Math.abs(e.money)}`);
     if (choice.itemGained) changes.push(`+ ${choice.itemGained}`);
-    
-    // Obfuscated results
-    if (e.trust) changes.push(e.trust > 0 ? "Trust Gained" : "Trust Lost");
-    if (e.knowledge) changes.push("New Insights");
-    if (e.stress && e.stress > 0) changes.push("Increased Stress");
+    if (e.knowledge) changes.push("New Insights Found");
     if (e.injury && e.injury > 0) changes.push("Sustained Injury");
     if (choice.clueGained) changes.push(`New Lead Found`);
 
-    updates.latestOutcome = changes.length > 0 ? changes.join(" • ") : "Investigated area.";
+    updates.latestOutcome = changes.length > 0 ? changes.join(" • ") : "Investigated.";
 
     if (choice.itemGained) {
       updates.inventory = [...state.inventory, choice.itemGained];

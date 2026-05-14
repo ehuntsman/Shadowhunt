@@ -13,11 +13,11 @@ import {
   RefreshCw,
   ChevronRight,
   MapPin,
-  Package,
   Search,
   Activity,
   Compass,
-  Eye
+  Eye,
+  Target
 } from "lucide-react-native";
 import { Alert } from "react-native";
 
@@ -70,7 +70,7 @@ export default function InvestigationScreen() {
     }
   };
 
-  const Meter = ({ icon: Icon, value, color }: { icon: any, value: number, color: string }) => (
+  const Meter = ({ icon: Icon, value, color }: { icon: any, value: any, color: string }) => (
     <View className="items-center flex-1">
       <Icon size={12} color={color} />
       <Text className="text-[9px] mt-1 font-bold" style={{ color }}>{value}</Text>
@@ -86,20 +86,26 @@ export default function InvestigationScreen() {
     }
   };
 
-  const actions = currentScene.choices.filter((c: any) => c.nextSceneId === currentScene.sceneId);
-  const travel = currentScene.choices.filter((c: any) => c.nextSceneId !== currentScene.sceneId);
-
   return (
     <SafeAreaView className="flex-1 bg-slate-950" edges={["top"]}>
       {/* Narrative Stats Header */}
       <View className="flex-row justify-between px-4 py-3 border-b border-white/5 bg-slate-900/80 z-10">
         <Meter icon={Users} value={gameState.trust} color="#3b82f6" />
-        <Meter icon={Star} value={gameState.reputation} color="#eab308" />
         <Meter icon={Zap} value={gameState.stress} color="#a855f7" />
         <Meter icon={Coins} value={gameState.money} color="#22c55e" />
         <Meter icon={AlertCircle} value={gameState.injury} color="#ef4444" />
+        {/* Hunt Progress Meter */}
+        <View className="items-center flex-[2] bg-slate-800/50 rounded-lg px-2 py-1 mx-2 border border-white/5">
+            <View className="flex-row items-center mb-1">
+                <Target size={10} className="text-amber-500 mr-1" />
+                <Text className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Hunt Progress</Text>
+            </View>
+            <View className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
+                <View className="h-full bg-amber-500 shadow-[0_0_5px_#f59e0b]" style={{ width: `${gameState.knowledge}%` }} />
+            </View>
+        </View>
+        <Meter icon={Star} value={gameState.reputation} color="#eab308" />
         <Meter icon={ShieldAlert} value={gameState.authority} color="#64748b" />
-        <Meter icon={BookOpen} value={gameState.knowledge} color="#6366f1" />
       </View>
 
       <ScrollView className="flex-1" contentContainerClassName="p-6 pb-20">
@@ -139,7 +145,7 @@ export default function InvestigationScreen() {
             </View>
             <View className="gap-3">
             {currentScene.choices.map((choice: any, i: number) => {
-                if (choice.nextSceneId !== currentScene.sceneId) return null;
+                if (choice.nextSceneId !== currentScene.sceneId && choice.nextSceneId !== "the_encounter" && choice.nextSceneId !== "victory") return null;
                 return (
                 <Button 
                     key={i} 
@@ -158,6 +164,7 @@ export default function InvestigationScreen() {
                             <View className="flex-row items-center">
                                 {choice.effects.money < 0 && <Coins size={12} className="text-emerald-500 mr-1.5" />}
                                 {choice.effects.injury > 0 && <AlertCircle size={12} className="text-red-500 mr-1.5" />}
+                                {choice.effects.knowledge > 0 && <BookOpen size={12} className="text-blue-500 mr-1.5" />}
                                 {(choice.itemGained || choice.clueGained) && <Search size={12} className="text-amber-400" />}
                             </View>
                         </View>
@@ -178,7 +185,7 @@ export default function InvestigationScreen() {
             </View>
             <View className="gap-3">
             {currentScene.choices.map((choice: any, i: number) => {
-                if (choice.nextSceneId === currentScene.sceneId) return null;
+                if (choice.nextSceneId === currentScene.sceneId || choice.nextSceneId === "the_encounter" || choice.nextSceneId === "victory") return null;
                 return (
                 <Button 
                     key={i} 
