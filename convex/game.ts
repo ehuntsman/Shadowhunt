@@ -37,14 +37,12 @@ export const getMessages = query({
 export const initializeGame = mutation({
   args: {},
   handler: async (ctx: MutationCtx) => {
-    // 1. Clear old data
     const existing = await ctx.db.query("gameState").first();
     if (existing) await ctx.db.delete(existing._id);
     
     const oldScenes = await ctx.db.query("scenes").collect();
     for (const s of oldScenes) await ctx.db.delete(s._id);
 
-    // 2. Define 3 Robust Scenarios
     const scenarios = [
       {
         sceneId: "start",
@@ -52,6 +50,7 @@ export const initializeGame = mutation({
         text: "It's 2 AM. The neon sign of 'Mama's Kitchen' flickers, casting a sickly green glow over the parking lot. Inside, a lone waitress is cleaning the counter. She looks like she's seen a lot, but doesn't talk much to strangers.",
         type: "investigation",
         location: "Oakhaven Outskirts",
+        backgroundImage: "diner_exterior", // Placeholder for user to map to assets
         choices: [
           {
             text: "Slip her a $20 for info",
@@ -80,6 +79,7 @@ export const initializeGame = mutation({
         text: "The pumps are rusted shut, and the air smells of old oil and something... metallic. A heavy chain locks the main office, but a side window is cracked open. You hear a scratching sound from inside.",
         type: "exploration",
         location: "Route 9",
+        backgroundImage: "gas_station_night",
         choices: [
           {
             text: "Climb through the cracked window",
@@ -109,6 +109,7 @@ export const initializeGame = mutation({
         text: "The trail leads deep into the Blackwood Forest. The trees here grow at impossible angles. You find a circle of stones blocking the path.",
         type: "encounter",
         location: "Blackwood Forest",
+        backgroundImage: "forest_trail",
         choices: [
           {
             text: "Disrupt the stone circle",
@@ -194,19 +195,21 @@ export const makeChoice = mutation({
       day: state.day + (choice.nextSceneId === "start" ? 1 : 0)
     };
 
-    // Calculate Outcome Text
+    // Calculate Outcome Text for the Log
     const changes = [];
-    if (e.trust) changes.push(`${e.trust > 0 ? '+' : ''}${e.trust} Trust`);
-    if (e.reputation) changes.push(`${e.reputation > 0 ? '+' : ''}${e.reputation} Rep`);
-    if (e.stress) changes.push(`${e.stress > 0 ? '+' : ''}${e.stress} Stress`);
+    
+    // Hide exact amounts for knowledge and others, but show money/items explicitly
     if (e.money) changes.push(`${e.money > 0 ? '+$' : '-$'}${Math.abs(e.money)}`);
-    if (e.injury) changes.push(`${e.injury > 0 ? '+' : ''}${e.injury} Injury`);
-    if (e.authority) changes.push(`${e.authority > 0 ? '+' : ''}${e.authority} Auth`);
-    if (e.knowledge) changes.push(`${e.knowledge > 0 ? '+' : ''}${e.knowledge} Know`);
-    if (choice.itemGained) changes.push(`+${choice.itemGained}`);
-    if (choice.clueGained) changes.push(`New Lead Found`);
+    if (choice.itemGained) changes.push(`+ ${choice.itemGained}`);
+    
+    // Subtle indicators for others
+    if (e.trust) changes.push(e.trust > 0 ? "Trust Gained" : "Trust Lost");
+    if (e.knowledge) changes.push("New Insights");
+    if (e.stress && e.stress > 0) changes.push("Increased Stress");
+    if (e.injury && e.injury > 0) changes.push("Sustained Injury");
+    if (choice.clueGained) changes.push(`New Lead`);
 
-    updates.latestOutcome = changes.length > 0 ? changes.join(", ") : "You moved forward.";
+    updates.latestOutcome = changes.length > 0 ? changes.join(" • ") : "Proceeded.";
 
     if (choice.itemGained) {
       updates.inventory = [...state.inventory, choice.itemGained];
